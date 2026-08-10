@@ -1,0 +1,2936 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; connect-src 'none'; font-src 'none'; media-src 'none'; object-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'">
+  <title>Offline BIP-39 24-word deriver</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #172019;
+      --muted: #667068;
+      --paper: #f2f1e9;
+      --cream: #fbfaf3;
+      --lime: #d7ff38;
+      --red: #b42318;
+      --green: #2f7600;
+      --line: rgba(23, 32, 25, .17);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      background: var(--paper);
+      color: var(--ink);
+      font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.5;
+    }
+    button, textarea, input, select { font: inherit; }
+    button:focus-visible, textarea:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible { outline: 3px solid #426500; outline-offset: 3px; }
+    .shell { width: min(1180px, calc(100% - 40px)); margin: 0 auto; }
+    header {
+      min-height: 84px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      border-bottom: 1px solid var(--line);
+    }
+    .brand { display: flex; align-items: center; gap: 12px; font-weight: 760; letter-spacing: -.02em; }
+    .brand-mark {
+      width: 40px; height: 40px; display: grid; place-items: center;
+      border-radius: 50%; background: var(--ink); color: var(--lime);
+      font: 700 12px ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+    .header-actions { display: flex; align-items: center; gap: 10px; }
+    .local-chip {
+      display: flex; align-items: center; gap: 9px; border: 1px solid var(--line);
+      border-radius: 999px; padding: 9px 13px; background: rgba(251,250,243,.62);
+      font-size: 12px; font-weight: 700;
+    }
+    .download-button {
+      min-height: 42px; display: inline-flex; align-items: center; gap: 9px;
+      border-radius: 8px; padding: 0 15px; background: var(--lime); color: var(--ink);
+      text-decoration: none; font-size: 12px; font-weight: 800;
+      transition: transform .15s ease, background .15s ease;
+    }
+    .download-button:hover { background: #e4ff76; }
+    .download-button:active { transform: translateY(1px); }
+    .dot { width: 7px; height: 7px; border-radius: 50%; background: #61a20c; box-shadow: 0 0 0 4px rgba(97,162,12,.12); }
+    .hero { padding: 72px 0 52px; }
+    .eyebrow, .mono-label, th, .test-row, .metric-label {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      text-transform: uppercase; letter-spacing: .08em; font-size: 11px; font-weight: 760;
+    }
+    .eyebrow { display: inline-block; padding: 7px 11px; background: var(--lime); border-radius: 4px; }
+    h1 { margin: 24px 0 20px; max-width: 980px; font-size: clamp(48px, 8vw, 104px); line-height: .91; letter-spacing: -.07em; font-weight: 670; }
+    .lead { max-width: 760px; margin: 0; color: var(--muted); font-size: clamp(17px, 2vw, 21px); }
+    .workbench {
+      background: var(--ink); color: var(--cream); border-radius: 22px;
+      padding: clamp(22px, 4vw, 44px); box-shadow: 0 26px 70px rgba(23,32,25,.15);
+    }
+    .workbench-head { display: flex; justify-content: space-between; gap: 24px; align-items: flex-start; margin-bottom: 24px; }
+    .workbench h2, .results h2 { margin: 7px 0 0; font-size: clamp(25px, 3.2vw, 39px); line-height: 1.05; letter-spacing: -.045em; }
+    .mono-label { color: var(--lime); }
+    .bit-counter { color: rgba(251,250,243,.68); font: 700 12px ui-monospace, SFMono-Regular, Menlo, monospace; }
+    textarea {
+      width: 100%; min-height: 190px; resize: vertical; border: 1px solid rgba(251,250,243,.2);
+      border-radius: 10px; padding: 18px; background: rgba(251,250,243,.07); color: var(--cream);
+      caret-color: var(--lime); font: 16px/1.8 ui-monospace, SFMono-Regular, Menlo, monospace;
+      letter-spacing: .04em;
+    }
+    textarea::placeholder { color: rgba(251,250,243,.35); letter-spacing: 0; }
+    .input-help { display: flex; justify-content: space-between; gap: 16px; margin: 10px 1px 0; color: rgba(251,250,243,.58); font-size: 12px; }
+    .error { min-height: 24px; margin-top: 10px; color: #ffb4ab; font-size: 13px; }
+    .action-row { display: flex; gap: 12px; margin-top: 16px; }
+    button {
+      border: 0; border-radius: 8px; min-height: 54px; padding: 0 19px;
+      cursor: pointer; font-weight: 760; transition: transform .15s ease, background .15s ease;
+    }
+    button:active { transform: translateY(1px); }
+    button:disabled { opacity: .42; cursor: not-allowed; }
+    .primary { flex: 1; display: flex; justify-content: space-between; align-items: center; background: var(--lime); color: var(--ink); }
+    .primary:hover:not(:disabled) { background: #e4ff76; }
+    .secondary { background: rgba(251,250,243,.12); color: var(--cream); }
+    .secondary:hover:not(:disabled) { background: rgba(251,250,243,.18); }
+    .tests {
+      margin-top: 22px; display: grid; grid-template-columns: repeat(4, 1fr);
+      border-top: 1px solid rgba(251,250,243,.16); border-left: 1px solid rgba(251,250,243,.16);
+    }
+    .test-row { min-height: 54px; padding: 13px; border-right: 1px solid rgba(251,250,243,.16); border-bottom: 1px solid rgba(251,250,243,.16); color: rgba(251,250,243,.58); }
+    .test-row strong { display: block; margin-top: 3px; color: var(--cream); font-family: ui-sans-serif, sans-serif; text-transform: none; letter-spacing: 0; font-size: 12px; }
+    .test-row[data-state="pass"] strong { color: #c8ff8d; }
+    .test-row[data-state="fail"] strong { color: #ffb4ab; }
+    .results { padding: 64px 0 10px; }
+    .results[hidden] { display: none; }
+    .result-head { display: flex; justify-content: space-between; gap: 20px; align-items: flex-end; margin-bottom: 24px; }
+    .hashes { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 24px; }
+    .metric { min-width: 0; border: 1px solid var(--line); border-radius: 10px; padding: 15px; background: rgba(251,250,243,.58); }
+    .metric-label { display: block; margin-bottom: 7px; color: var(--muted); }
+    .metric code { display: block; overflow-wrap: anywhere; font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; background: var(--cream); }
+    table { width: 100%; border-collapse: collapse; min-width: 760px; }
+    th, td { text-align: left; padding: 13px 15px; border-bottom: 1px solid var(--line); }
+    th { background: #e7e6dc; color: var(--muted); }
+    td { font-size: 14px; }
+    td code { font: 13px ui-monospace, SFMono-Regular, Menlo, monospace; }
+    tbody tr:last-child td { border-bottom: 0; }
+    .phrase-card { margin-top: 24px; padding: clamp(21px, 4vw, 36px); border-radius: 14px; background: var(--ink); color: var(--cream); }
+    .phrase-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; }
+    .phrase-top h3 { margin: 7px 0 0; font-size: 25px; letter-spacing: -.035em; }
+    .countdown { min-width: 90px; text-align: right; color: var(--lime); font: 700 12px ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .phrase-output {
+      min-height: 112px; margin: 22px 0; padding: 20px; display: grid; place-items: center;
+      border: 1px solid rgba(251,250,243,.17); border-radius: 10px; background: rgba(251,250,243,.06);
+      text-align: center; font: 17px/1.75 ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+    .phrase-output.concealed { color: rgba(251,250,243,.48); letter-spacing: .08em; }
+    .phrase-actions { display: flex; gap: 10px; }
+    .phrase-actions .primary { justify-content: center; }
+    .wallet-flow { padding: 54px 0 4px; }
+    .wallet-flow[hidden] { display: none; }
+    .wallet-panel { margin: 0 0 24px; padding: clamp(22px, 4vw, 38px); border: 1px solid var(--line); border-radius: 16px; background: var(--cream); }
+    .wallet-panel.dark { background: var(--ink); color: var(--cream); border-color: var(--ink); }
+    .wallet-panel h2 { margin: 7px 0 10px; font-size: clamp(28px, 4vw, 45px); line-height: 1; letter-spacing: -.05em; }
+    .wallet-panel h3 { margin: 0 0 8px; font-size: 19px; letter-spacing: -.025em; }
+    .wallet-intro { max-width: 820px; margin: 0 0 26px; color: var(--muted); }
+    .dark .wallet-intro, .dark .field-help { color: rgba(251,250,243,.66); }
+    .settings-grid, .export-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+    .field { min-width: 0; }
+    .field.wide { grid-column: 1 / -1; }
+    .field label { display: block; margin-bottom: 7px; color: var(--muted); font: 760 11px ui-monospace, SFMono-Regular, Menlo, monospace; text-transform: uppercase; letter-spacing: .07em; }
+    .dark .field label { color: var(--lime); }
+    .field input, .field select, .public-value {
+      width: 100%; min-height: 48px; border: 1px solid var(--line); border-radius: 8px; padding: 12px;
+      background: #fff; color: var(--ink); font: 13px/1.55 ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+    .field input, .field select { font-size: 16px; }
+    .dark .field input, .dark .field select { border-color: rgba(251,250,243,.2); background: rgba(251,250,243,.07); color: var(--cream); }
+    .field input[readonly], .field select:disabled { opacity: 1; background: #e9e8df; color: #424b44; }
+    .dark .field input[readonly], .dark .field select:disabled { background: rgba(251,250,243,.1); color: rgba(251,250,243,.74); }
+    .field-help { display: block; margin-top: 7px; color: var(--muted); font-size: 12px; }
+    .wallet-warning { margin: 18px 0; padding: 14px 16px; border-left: 4px solid var(--lime); background: rgba(215,255,56,.12); font-size: 13px; }
+    .wallet-error { min-height: 24px; margin: 10px 0 0; color: #ffb4ab; font-size: 13px; }
+    .derive-wallet-button { width: 100%; margin-top: 16px; }
+    .export-item { min-width: 0; border: 1px solid var(--line); border-radius: 11px; padding: 15px; background: rgba(255,255,255,.56); }
+    .export-item.wide { grid-column: 1 / -1; }
+    .public-value { display: block; min-height: auto; margin: 9px 0; overflow-wrap: anywhere; white-space: pre-wrap; }
+    textarea.public-value { min-height: 180px; resize: vertical; letter-spacing: 0; font-size: 16px; }
+    .mini-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+    .mini-button { min-height: 38px; padding: 0 12px; border: 1px solid var(--line); background: #e7e6dc; color: var(--ink); font-size: 12px; }
+    .mini-button:hover:not(:disabled) { background: var(--lime); }
+    .qr-wrap { margin-top: 12px; padding: 12px; border: 1px solid var(--line); border-radius: 9px; background: #fff; text-align: center; }
+    .qr-wrap[hidden] { display: none; }
+    .qr-wrap canvas { display: block; max-width: 100%; height: auto; margin: 0 auto; image-rendering: pixelated; }
+    .qr-note { margin: 8px 0 0; color: var(--muted); font-size: 11px; }
+    .address-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 18px; margin: 20px 0 14px; }
+    .address-table { min-width: 940px; }
+    .address-table td:nth-child(3) { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .address-qr td { padding: 0; background: #eeede5; }
+    .address-qr .qr-wrap { max-width: 330px; margin: 12px auto; }
+    .gap-warning { max-width: 700px; margin: 0; color: var(--muted); font-size: 13px; }
+    .checklist { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-top: 22px; }
+    .check-item { display: flex; align-items: flex-start; gap: 10px; padding: 14px; border: 1px solid var(--line); border-radius: 9px; background: rgba(255,255,255,.5); }
+    .check-item input { width: 18px; height: 18px; margin: 2px 0 0; accent-color: #426500; }
+    .workflow { margin: 24px 0 0; padding-left: 22px; }
+    .workflow li { margin: 8px 0; }
+    .dependency-note { margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--line); color: var(--muted); font-size: 12px; }
+    .dependency-note code { overflow-wrap: anywhere; }
+    .safety { margin: 64px 0; padding: 34px 0; display: grid; grid-template-columns: 90px 1.15fr .85fr; gap: 34px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+    .safety-label { justify-self: start; align-self: start; color: var(--ink); }
+    .safety h2 { margin: 0 0 12px; font-size: clamp(30px, 4vw, 52px); line-height: 1; letter-spacing: -.055em; }
+    .safety p { margin: 0; color: var(--muted); }
+    .facts { display: grid; align-content: start; }
+    .facts span { padding: 12px 0; border-bottom: 1px solid var(--line); font: 700 11px ui-monospace, SFMono-Regular, Menlo, monospace; text-transform: uppercase; letter-spacing: .04em; }
+    footer { min-height: 90px; display: flex; justify-content: space-between; gap: 20px; align-items: center; color: var(--muted); font-size: 12px; }
+    @media (max-width: 760px) {
+      .shell { width: min(100% - 28px, 1180px); }
+      header { min-height: 72px; }
+      .local-chip { font-size: 0; }
+      .download-button { padding: 0 12px; }
+      .download-label { display: none; }
+      .hero { padding: 52px 0 36px; }
+      h1 { letter-spacing: -.06em; }
+      .workbench { border-radius: 15px; }
+      .workbench-head, .result-head { align-items: flex-start; flex-direction: column; }
+      .action-row, .phrase-actions, .address-toolbar { flex-direction: column; align-items: stretch; }
+      .tests { grid-template-columns: 1fr; }
+      .hashes { grid-template-columns: 1fr; }
+      .settings-grid, .export-grid, .checklist { grid-template-columns: 1fr; }
+      .field.wide, .export-item.wide { grid-column: auto; }
+      .safety { grid-template-columns: 1fr; }
+      footer { flex-direction: column; align-items: flex-start; justify-content: center; }
+    }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; } }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header>
+      <div class="brand"><span class="brand-mark" aria-hidden="true">256</span><span>Offline Mnemonic Deriver</span></div>
+      <div class="header-actions">
+        <div class="local-chip"><span class="dot" aria-hidden="true"></span> Zero network requests</div>
+        <a class="download-button" href="/offline-bip39-24-word-deriver.html" download="offline-bip39-24-word-deriver.html" aria-label="Download the complete offline BIP-39 deriver HTML file">
+          <span aria-hidden="true">↓</span><span class="download-label">Download HTML</span>
+        </a>
+      </div>
+    </header>
+
+    <main>
+      <section class="hero">
+        <span class="eyebrow">BIP-39 · deterministic derivation</span>
+        <h1>Turn 256 bits into 24 words.</h1>
+        <p class="lead">Paste binary entropy to inspect every checksum and word-index step locally. This standalone file contains its code and the complete 2,048-word English list.</p>
+      </section>
+
+      <section class="workbench" aria-labelledby="entropy-title">
+        <div class="workbench-head">
+          <div><span class="mono-label">Step 01 · Entropy</span><h2 id="entropy-title">Enter exactly 256 binary bits.</h2></div>
+          <span class="bit-counter" id="bitCounter">0 / 256 bits</span>
+        </div>
+        <label class="mono-label" for="entropy">Binary entropy (whitespace is ignored)</label>
+        <textarea id="entropy" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="00000000 00000000 …"></textarea>
+        <div class="input-help"><span>Accepted: 0, 1, spaces, tabs, and line breaks</span><span>Never saved</span></div>
+        <div class="error" id="inputError" role="alert"></div>
+        <div class="action-row">
+          <button class="primary" id="deriveButton" type="button" disabled><span>Derive 24 words</span><span aria-hidden="true">→</span></button>
+          <button class="secondary" id="clearButton" type="button">Clear</button>
+        </div>
+
+        <div class="tests" aria-label="Startup self-tests">
+          <div class="test-row" id="shaTest" data-state="running">SHA-256 known answers<strong>Running…</strong></div>
+          <div class="test-row" id="wordlistTest" data-state="running">Embedded wordlist<strong>Running…</strong></div>
+          <div class="test-row" id="vectorTest" data-state="running">BIP-39 all-zero vector<strong>Running…</strong></div>
+          <div class="test-row" id="walletTest" data-state="running">BIP39 · BIP32 · BIP84 · descriptors<strong>Running…</strong></div>
+        </div>
+      </section>
+
+      <section class="results" id="results" hidden aria-labelledby="results-title">
+        <div class="result-head"><div><span class="eyebrow">Step 02 · Checksum and indices</span><h2 id="results-title">Derivation details</h2></div><span class="bit-counter" id="crossCheckStatus">Two SHA-256 implementations agree</span></div>
+        <div class="hashes">
+          <div class="metric"><span class="metric-label">SHA-256 of 32 entropy bytes</span><code id="hashHex"></code></div>
+          <div class="metric"><span class="metric-label">First 8 hash bits · BIP-39 checksum</span><code id="checksumBits"></code></div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Group</th><th>11-bit value</th><th>GitHub line</th></tr></thead>
+            <tbody id="wordRows"></tbody>
+          </table>
+        </div>
+
+        <div class="phrase-card">
+          <div class="phrase-top"><div><span class="mono-label">Step 03 · Final phrase</span><h3>Concealed until you reveal it.</h3></div><span class="countdown" id="countdown">Hidden</span></div>
+          <div class="phrase-output concealed" id="phraseOutput" aria-live="polite">24-word phrase concealed</div>
+          <div class="phrase-actions">
+            <button class="primary" id="revealButton" type="button">Reveal for 30 seconds</button>
+          </div>
+        </div>
+      </section>
+
+      <div class="wallet-flow" id="walletFlow" hidden>
+        <section class="wallet-panel dark" aria-labelledby="wallet-settings-title">
+          <span class="mono-label">Step 04 · Wallet settings</span>
+          <h2 id="wallet-settings-title">Derive public wallet information.</h2>
+          <p class="wallet-intro">This is a separate deliberate step. It converts the current mnemonic into a BIP39 seed, derives the hardened BIP84 account, retains only its public account node, and then clears temporary secret byte arrays on a best-effort basis.</p>
+          <div class="wallet-warning"><strong>Passphrase warning:</strong> a different passphrase creates a completely different wallet, even with the same 24 words. A forgotten or mistyped passphrase cannot be recovered.</div>
+          <div class="settings-grid">
+            <div class="field">
+              <label for="walletPassphrase">Optional BIP39 passphrase</label>
+              <input id="walletPassphrase" type="password" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true">
+              <span class="field-help">Blank means the empty string. Never stored and never copied.</span>
+            </div>
+            <div class="field">
+              <label for="walletPassphraseConfirm">Confirm passphrase</label>
+              <input id="walletPassphraseConfirm" type="password" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true">
+              <span class="field-help">Required whenever the passphrase is nonempty.</span>
+            </div>
+            <div class="field">
+              <label for="walletNetwork">Network</label>
+              <select id="walletNetwork" disabled><option selected>Bitcoin mainnet</option></select>
+            </div>
+            <div class="field">
+              <label for="walletType">Wallet type</label>
+              <input id="walletType" readonly value="Native SegWit P2WPKH · single-signature">
+            </div>
+            <div class="field">
+              <label for="walletAccount">Account number</label>
+              <input id="walletAccount" readonly value="0">
+            </div>
+            <div class="field">
+              <label for="walletPath">Account path</label>
+              <input id="walletPath" readonly value="m/84'/0'/0'">
+            </div>
+          </div>
+          <div class="wallet-error" id="walletError" role="alert"></div>
+          <button class="primary derive-wallet-button" id="deriveWalletButton" type="button"><span>Derive public wallet information</span><span aria-hidden="true">→</span></button>
+        </section>
+
+        <section class="wallet-panel" id="walletExport" hidden aria-labelledby="wallet-export-title">
+          <span class="eyebrow">Step 05 · Watch-only export</span>
+          <h2 id="wallet-export-title">Public account data only.</h2>
+          <p class="wallet-intro">No seed or extended private key is displayed or exported. Public does not mean private: anyone with this package can derive your addresses and monitor the wallet’s transaction history and balances.</p>
+          <div class="export-grid">
+            <article class="export-item">
+              <h3>Wallet metadata</h3>
+              <div class="public-value" id="walletMetadata"></div>
+            </article>
+            <article class="export-item">
+              <h3>Master fingerprint</h3>
+              <code class="public-value" id="masterFingerprint"></code>
+              <div class="mini-actions"><button class="mini-button copy-public" type="button" data-copy="masterFingerprint">Copy fingerprint</button></div>
+            </article>
+            <article class="export-item wide">
+              <h3>Account ZPUB</h3>
+              <code class="public-value" id="accountZpub"></code>
+              <div class="mini-actions"><button class="mini-button copy-public" type="button" data-copy="accountZpub">Copy ZPUB</button><button class="mini-button qr-toggle" type="button" data-qr="zpubQr" data-source="accountZpub">Reveal QR</button></div>
+              <div class="qr-wrap" id="zpubQrWrap" hidden><canvas id="zpubQr" aria-label="ZPUB QR code"></canvas><p class="qr-note">Public watch-only data</p></div>
+            </article>
+            <article class="export-item wide">
+              <h3>Account XPUB + path + fingerprint</h3>
+              <code class="public-value" id="accountXpubPackage"></code>
+              <div class="mini-actions"><button class="mini-button copy-public" type="button" data-copy="accountXpubPackage">Copy XPUB package</button></div>
+            </article>
+            <article class="export-item wide">
+              <h3>Receiving descriptor</h3>
+              <code class="public-value" id="receiveDescriptor"></code>
+              <div class="mini-actions"><button class="mini-button copy-public" type="button" data-copy="receiveDescriptor">Copy descriptor</button><button class="mini-button qr-toggle" type="button" data-qr="receiveDescriptorQr" data-source="receiveDescriptor">Reveal QR</button></div>
+              <div class="qr-wrap" id="receiveDescriptorQrWrap" hidden><canvas id="receiveDescriptorQr" aria-label="Receiving descriptor QR code"></canvas><p class="qr-note">BIP380 checksum included</p></div>
+            </article>
+            <article class="export-item wide">
+              <h3>Change descriptor</h3>
+              <code class="public-value" id="changeDescriptor"></code>
+              <div class="mini-actions"><button class="mini-button copy-public" type="button" data-copy="changeDescriptor">Copy descriptor</button><button class="mini-button qr-toggle" type="button" data-qr="changeDescriptorQr" data-source="changeDescriptor">Reveal QR</button></div>
+              <div class="qr-wrap" id="changeDescriptorQrWrap" hidden><canvas id="changeDescriptorQr" aria-label="Change descriptor QR code"></canvas><p class="qr-note">Verification/import use only</p></div>
+            </article>
+            <article class="export-item wide">
+              <h3>Complete JSON watch-only package</h3>
+              <textarea class="public-value" id="watchOnlyJson" readonly spellcheck="false"></textarea>
+              <div class="mini-actions"><button class="mini-button copy-public" type="button" data-copy="watchOnlyJson">Copy JSON</button><button class="mini-button qr-toggle" id="jsonQrButton" type="button" data-qr="jsonQr" data-source="watchOnlyJson">Reveal QR if it fits</button></div>
+              <div class="qr-wrap" id="jsonQrWrap" hidden><canvas id="jsonQr" aria-label="Complete public wallet package QR code"></canvas><p class="qr-note" id="jsonQrNote">Complete public wallet package</p></div>
+            </article>
+            <article class="export-item wide">
+              <h3>First receiving address</h3>
+              <code class="public-value" id="firstReceiveAddress"></code>
+              <div class="mini-actions"><button class="mini-button copy-public" type="button" data-copy="firstReceiveAddress">Copy address</button><button class="mini-button qr-toggle" type="button" data-qr="firstAddressQr" data-source="firstReceiveAddress">Reveal QR</button></div>
+              <div class="qr-wrap" id="firstAddressQrWrap" hidden><canvas id="firstAddressQr" aria-label="First receiving address QR code"></canvas><p class="qr-note">Verify against the imported watch-only wallet</p></div>
+            </article>
+          </div>
+        </section>
+
+        <section class="wallet-panel" id="addressSection" hidden aria-labelledby="address-title">
+          <span class="eyebrow">Step 06 · Receiving addresses</span>
+          <h2 id="address-title">Receive from the public node.</h2>
+          <p class="wallet-intro">These Native SegWit addresses are derived only from the neutered account public node. This page never queries balances, usage, transactions, fees, or blockchain data.</p>
+          <div class="address-toolbar">
+            <p class="gap-warning"><strong>Gap-limit warning:</strong> recovery software may stop after 20 consecutive unused receiving addresses. Avoid creating large unused ranges, and do not skip far ahead.</p>
+            <button class="mini-button" id="moreAddressesButton" type="button">Generate next 20</button>
+          </div>
+          <div class="table-wrap">
+            <table class="address-table"><thead><tr><th>Index</th><th>Full derivation path</th><th>Bitcoin address</th><th>Public actions</th></tr></thead><tbody id="addressRows"></tbody></table>
+          </div>
+          <details><summary>Advanced verification: first change address</summary><p>Do not use this as a normal deposit address.</p><code class="public-value" id="firstChangeAddress"></code><code class="public-value" id="firstChangePath"></code></details>
+        </section>
+
+        <section class="wallet-panel" id="verificationSection" hidden aria-labelledby="verification-title">
+          <span class="eyebrow">Step 07 · Verification checklist</span>
+          <h2 id="verification-title">Match before funding.</h2>
+          <div class="checklist">
+            <label class="check-item"><input type="checkbox"><span>Seed backed up physically</span></label>
+            <label class="check-item"><input type="checkbox"><span>Passphrase backed up separately, if used</span></label>
+            <label class="check-item"><input type="checkbox"><span>Watch-only package imported</span></label>
+            <label class="check-item"><input type="checkbox"><span>First three receiving addresses compared exactly</span></label>
+            <label class="check-item"><input type="checkbox"><span>Small test deposit planned before larger use</span></label>
+          </div>
+          <ol class="workflow">
+            <li>Create the mnemonic and optional passphrase on the permanently offline device.</li>
+            <li>Back up the mnemonic and passphrase physically.</li>
+            <li>Generate the public watch-only package.</li>
+            <li>Transfer the ZPUB or descriptors to the online watch-only wallet using QR.</li>
+            <li>Confirm that the first several receiving addresses shown online exactly match this offline application.</li>
+            <li>Do not send bitcoin until the addresses match.</li>
+            <li>After verification, use the online watch-only wallet for future receiving addresses.</li>
+            <li>Keep the seed phrase and passphrase permanently offline.</li>
+          </ol>
+          <p class="dependency-note">Pinned local bundle: @scure/bip32 2.2.0, @noble/curves 2.2.0, @noble/hashes 2.2.0 and @scure/base 2.2.0 (MIT; github.com/paulmillr), plus qr 0.6.0 (MIT or Apache-2.0; github.com/paulmillr/qr). Build: <code>npm run bundle:wallet</code>. Embedded cryptographic code SHA-256: <code id="cryptoBundleHash">a7cdd76d40497be421cf153fb5d5c3f8814cdd7d07bda5acc38dcce26207ef63</code>. Package release integrity hashes and build details are documented in the source repository README.</p>
+        </section>
+      </div>
+
+      <section class="safety" aria-labelledby="safety-title">
+        <span class="eyebrow safety-label">Important</span>
+        <div><h2 id="safety-title">Offline is a boundary, not a guarantee.</h2><p>For real wallet entropy, use this file on a clean offline machine and inspect its source first. Local code cannot protect against a compromised browser, extensions, malware, screen recording, swap memory, or physical observation.</p></div>
+        <div class="facts"><span>Web Crypto + independent JS check</span><span>Pinned local cryptography · no runtime downloads</span><span>No analytics, cookies, or storage</span><span>Save this page to use the same file offline</span></div>
+      </section>
+    </main>
+
+    <footer><span>BIP-39 English wordlist snapshot · 2,048 entries</span><span>256 entropy bits + 8 checksum bits = 24 × 11-bit groups</span></footer>
+  </div>
+
+  <script data-crypto-bundle-sha256="a7cdd76d40497be421cf153fb5d5c3f8814cdd7d07bda5acc38dcce26207ef63">
+  /* WALLET_CRYPTO_BUNDLE_START */
+"use strict";var WalletCrypto=(()=>{var ct=Object.defineProperty;var Xn=Object.getOwnPropertyDescriptor;var Qn=Object.getOwnPropertyNames;var Jn=Object.prototype.hasOwnProperty;var eo=(t,e,n)=>e in t?ct(t,e,{enumerable:!0,configurable:!0,writable:!0,value:n}):t[e]=n;var to=(t,e)=>{for(var n in e)ct(t,n,{get:e[n],enumerable:!0})},ro=(t,e,n,r)=>{if(e&&typeof e=="object"||typeof e=="function")for(let o of Qn(e))!Jn.call(t,o)&&o!==n&&ct(t,o,{get:()=>e[o],enumerable:!(r=Xn(e,o))||r.enumerable});return t};var no=t=>ro(ct({},"__esModule",{value:!0}),t);var w=(t,e,n)=>eo(t,typeof e!="symbol"?e+"":e,n);var yi={};to(yi,{accountPublicFromXpub:()=>Wn,clearQr:()=>gi,createWatchOnlyPackage:()=>bi,deriveAddress:()=>it,deriveWatchOnly:()=>Yn,descriptorChecksum:()=>Sr,drawQr:()=>wi,mnemonicToSeed:()=>Ke,p2wpkhAddress:()=>Gn,runWalletSelfTests:()=>xi,walletConstants:()=>mi,withDescriptorChecksum:()=>Br});function _t(t){return t instanceof Uint8Array||ArrayBuffer.isView(t)&&t.constructor.name==="Uint8Array"&&"BYTES_PER_ELEMENT"in t&&t.BYTES_PER_ELEMENT===1}function ne(t,e=""){if(typeof t!="number"){let n=e&&`"${e}" `;throw new TypeError(`${n}expected number, got ${typeof t}`)}if(!Number.isSafeInteger(t)||t<0){let n=e&&`"${e}" `;throw new RangeError(`${n}expected integer >= 0, got ${t}`)}}function q(t,e,n=""){let r=_t(t),o=t?.length,i=e!==void 0;if(!r||i&&o!==e){let c=n&&`"${n}" `,s=i?` of length ${e}`:"",a=r?`length=${o}`:`type=${typeof t}`,f=c+"expected Uint8Array"+s+", got "+a;throw r?new RangeError(f):new TypeError(f)}return t}function ke(t){if(typeof t!="function"||typeof t.create!="function")throw new TypeError("Hash must wrapped by utils.createHasher");if(ne(t.outputLen),ne(t.blockLen),t.outputLen<1)throw new Error('"outputLen" must be >= 1');if(t.blockLen<1)throw new Error('"blockLen" must be >= 1')}function Ce(t,e=!0){if(t.destroyed)throw new Error("Hash instance has been destroyed");if(e&&t.finished)throw new Error("Hash#digest() has already been called")}function ft(t,e){q(t,void 0,"digestInto() output");let n=e.outputLen;if(t.length<n)throw new RangeError('"digestInto() output" expected to be of length >='+n)}function ee(...t){for(let e=0;e<t.length;e++)t[e].fill(0)}function ce(t){return new DataView(t.buffer,t.byteOffset,t.byteLength)}function oe(t,e){return t<<32-e|t>>>e}function je(t,e){return t<<e|t>>>32-e>>>0}var Tr=typeof Uint8Array.from([]).toHex=="function"&&typeof Uint8Array.fromHex=="function",oo=Array.from({length:256},(t,e)=>e.toString(16).padStart(2,"0"));function at(t){if(q(t),Tr)return t.toHex();let e="";for(let n=0;n<t.length;n++)e+=oo[t[n]];return e}var le={_0:48,_9:57,A:65,F:70,a:97,f:102};function Ir(t){if(t>=le._0&&t<=le._9)return t-le._0;if(t>=le.A&&t<=le.F)return t-(le.A-10);if(t>=le.a&&t<=le.f)return t-(le.a-10)}function Ft(t){if(typeof t!="string")throw new TypeError("hex string expected, got "+typeof t);if(Tr)try{return Uint8Array.fromHex(t)}catch(o){throw o instanceof SyntaxError?new RangeError(o.message):o}let e=t.length,n=e/2;if(e%2)throw new RangeError("hex string expected, got unpadded hex of length "+e);let r=new Uint8Array(n);for(let o=0,i=0;o<n;o++,i+=2){let c=Ir(t.charCodeAt(i)),s=Ir(t.charCodeAt(i+1));if(c===void 0||s===void 0){let a=t[i]+t[i+1];throw new RangeError('hex string expected, got non-hex character "'+a+'" at index '+i)}r[o]=c*16+s}return r}function io(t){if(typeof t!="string")throw new TypeError("string expected");return new Uint8Array(new TextEncoder().encode(t))}function kt(t,e=""){return typeof t=="string"?io(t):q(t,void 0,e)}function me(...t){let e=0;for(let r=0;r<t.length;r++){let o=t[r];q(o),e+=o.length}let n=new Uint8Array(e);for(let r=0,o=0;r<t.length;r++){let i=t[r];n.set(i,o),o+=i.length}return n}function Or(t,e){if(e!==void 0&&{}.toString.call(e)!=="[object Object]")throw new TypeError("options must be object or undefined");return Object.assign(t,e)}function Pe(t,e={}){let n=(o,i)=>t(i).update(o).digest(),r=t(void 0);return n.outputLen=r.outputLen,n.blockLen=r.blockLen,n.canXOF=r.canXOF,n.create=o=>t(o),Object.assign(n,e),Object.freeze(n)}function _r(t=32){ne(t,"bytesLength");let e=typeof globalThis=="object"?globalThis.crypto:null;if(typeof e?.getRandomValues!="function")throw new Error("crypto.getRandomValues must be defined");if(t>65536)throw new RangeError(`"bytesLength" expected <= 65536, got ${t}`);return e.getRandomValues(new Uint8Array(t))}var Ct=t=>({oid:Uint8Array.from([6,9,96,134,72,1,101,3,4,2,t])});function Ut(t,e,n){return t&e^~t&n}function Lt(t,e,n){return t&e^t&n^e&n}var ye=class{constructor(e,n,r,o){w(this,"blockLen");w(this,"outputLen");w(this,"canXOF",!1);w(this,"padOffset");w(this,"isLE");w(this,"buffer");w(this,"view");w(this,"finished",!1);w(this,"length",0);w(this,"pos",0);w(this,"destroyed",!1);this.blockLen=e,this.outputLen=n,this.padOffset=r,this.isLE=o,this.buffer=new Uint8Array(e),this.view=ce(this.buffer)}update(e){Ce(this),q(e);let{view:n,buffer:r,blockLen:o}=this,i=e.length;for(let c=0;c<i;){let s=Math.min(o-this.pos,i-c);if(s===o){let a=ce(e);for(;o<=i-c;c+=o)this.process(a,c);continue}r.set(e.subarray(c,c+s),this.pos),this.pos+=s,c+=s,this.pos===o&&(this.process(n,0),this.pos=0)}return this.length+=e.length,this.roundClean(),this}digestInto(e){Ce(this),ft(e,this),this.finished=!0;let{buffer:n,view:r,blockLen:o,isLE:i}=this,{pos:c}=this;n[c++]=128,ee(this.buffer.subarray(c)),this.padOffset>o-c&&(this.process(r,0),c=0);for(let d=c;d<o;d++)n[d]=0;r.setBigUint64(o-8,BigInt(this.length*8),i),this.process(r,0);let s=ce(e),a=this.outputLen;if(a%4)throw new Error("_sha2: outputLen must be aligned to 32bit");let f=a/4,u=this.get();if(f>u.length)throw new Error("_sha2: outputLen bigger than state");for(let d=0;d<f;d++)s.setUint32(4*d,u[d],i)}digest(){let{buffer:e,outputLen:n}=this;this.digestInto(e);let r=e.slice(0,n);return this.destroy(),r}_cloneInto(e){e||(e=new this.constructor),e.set(...this.get());let{blockLen:n,buffer:r,length:o,finished:i,destroyed:c,pos:s}=this;return e.destroyed=c,e.finished=i,e.length=o,e.pos=s,o%n&&e.buffer.set(r),e}clone(){return this._cloneInto()}},ue=Uint32Array.from([1779033703,3144134277,1013904242,2773480762,1359893119,2600822924,528734635,1541459225]);var W=Uint32Array.from([1779033703,4089235720,3144134277,2227873595,1013904242,4271175723,2773480762,1595750129,1359893119,2917565137,2600822924,725511199,528734635,4215389547,1541459225,327033209]);var dt=BigInt(4294967295),Fr=BigInt(32);function so(t,e=!1){return e?{h:Number(t&dt),l:Number(t>>Fr&dt)}:{h:Number(t>>Fr&dt)|0,l:Number(t&dt)|0}}function kr(t,e=!1){let n=t.length,r=new Uint32Array(n),o=new Uint32Array(n);for(let i=0;i<n;i++){let{h:c,l:s}=so(t[i],e);[r[i],o[i]]=[c,s]}return[r,o]}var Ht=(t,e,n)=>t>>>n,Nt=(t,e,n)=>t<<32-n|e>>>n,Ee=(t,e,n)=>t>>>n|e<<32-n,ve=(t,e,n)=>t<<32-n|e>>>n,Me=(t,e,n)=>t<<64-n|e>>>n-32,qe=(t,e,n)=>t>>>n-32|e<<64-n;function fe(t,e,n,r){let o=(e>>>0)+(r>>>0);return{h:t+n+(o/2**32|0)|0,l:o|0}}var Cr=(t,e,n)=>(t>>>0)+(e>>>0)+(n>>>0),Ur=(t,e,n,r)=>e+n+r+(t/2**32|0)|0,Lr=(t,e,n,r)=>(t>>>0)+(e>>>0)+(n>>>0)+(r>>>0),Hr=(t,e,n,r,o)=>e+n+r+o+(t/2**32|0)|0,Nr=(t,e,n,r,o)=>(t>>>0)+(e>>>0)+(n>>>0)+(r>>>0)+(o>>>0),Dr=(t,e,n,r,o,i)=>e+n+r+o+i+(t/2**32|0)|0;var fo=Uint32Array.from([1116352408,1899447441,3049323471,3921009573,961987163,1508970993,2453635748,2870763221,3624381080,310598401,607225278,1426881987,1925078388,2162078206,2614888103,3248222580,3835390401,4022224774,264347078,604807628,770255983,1249150122,1555081692,1996064986,2554220882,2821834349,2952996808,3210313671,3336571891,3584528711,113926993,338241895,666307205,773529912,1294757372,1396182291,1695183700,1986661051,2177026350,2456956037,2730485921,2820302411,3259730800,3345764771,3516065817,3600352804,4094571909,275423344,430227734,506948616,659060556,883997877,958139571,1322822218,1537002063,1747873779,1955562222,2024104815,2227730452,2361852424,2428436474,2756734187,3204031479,3329325298]),be=new Uint32Array(64),Dt=class extends ye{constructor(e){super(64,e,8,!1)}get(){let{A:e,B:n,C:r,D:o,E:i,F:c,G:s,H:a}=this;return[e,n,r,o,i,c,s,a]}set(e,n,r,o,i,c,s,a){this.A=e|0,this.B=n|0,this.C=r|0,this.D=o|0,this.E=i|0,this.F=c|0,this.G=s|0,this.H=a|0}process(e,n){for(let d=0;d<16;d++,n+=4)be[d]=e.getUint32(n,!1);for(let d=16;d<64;d++){let l=be[d-15],h=be[d-2],p=oe(l,7)^oe(l,18)^l>>>3,b=oe(h,17)^oe(h,19)^h>>>10;be[d]=b+be[d-7]+p+be[d-16]|0}let{A:r,B:o,C:i,D:c,E:s,F:a,G:f,H:u}=this;for(let d=0;d<64;d++){let l=oe(s,6)^oe(s,11)^oe(s,25),h=u+l+Ut(s,a,f)+fo[d]+be[d]|0,b=(oe(r,2)^oe(r,13)^oe(r,22))+Lt(r,o,i)|0;u=f,f=a,a=s,s=c+h|0,c=i,i=o,o=r,r=h+b|0}r=r+this.A|0,o=o+this.B|0,i=i+this.C|0,c=c+this.D|0,s=s+this.E|0,a=a+this.F|0,f=f+this.G|0,u=u+this.H|0,this.set(r,o,i,c,s,a,f,u)}roundClean(){ee(be)}destroy(){this.destroyed=!0,this.set(0,0,0,0,0,0,0,0),ee(this.buffer)}},Kt=class extends Dt{constructor(){super(32);w(this,"A",ue[0]|0);w(this,"B",ue[1]|0);w(this,"C",ue[2]|0);w(this,"D",ue[3]|0);w(this,"E",ue[4]|0);w(this,"F",ue[5]|0);w(this,"G",ue[6]|0);w(this,"H",ue[7]|0)}};var Kr=kr(["0x428a2f98d728ae22","0x7137449123ef65cd","0xb5c0fbcfec4d3b2f","0xe9b5dba58189dbbc","0x3956c25bf348b538","0x59f111f1b605d019","0x923f82a4af194f9b","0xab1c5ed5da6d8118","0xd807aa98a3030242","0x12835b0145706fbe","0x243185be4ee4b28c","0x550c7dc3d5ffb4e2","0x72be5d74f27b896f","0x80deb1fe3b1696b1","0x9bdc06a725c71235","0xc19bf174cf692694","0xe49b69c19ef14ad2","0xefbe4786384f25e3","0x0fc19dc68b8cd5b5","0x240ca1cc77ac9c65","0x2de92c6f592b0275","0x4a7484aa6ea6e483","0x5cb0a9dcbd41fbd4","0x76f988da831153b5","0x983e5152ee66dfab","0xa831c66d2db43210","0xb00327c898fb213f","0xbf597fc7beef0ee4","0xc6e00bf33da88fc2","0xd5a79147930aa725","0x06ca6351e003826f","0x142929670a0e6e70","0x27b70a8546d22ffc","0x2e1b21385c26c926","0x4d2c6dfc5ac42aed","0x53380d139d95b3df","0x650a73548baf63de","0x766a0abb3c77b2a8","0x81c2c92e47edaee6","0x92722c851482353b","0xa2bfe8a14cf10364","0xa81a664bbc423001","0xc24b8b70d0f89791","0xc76c51a30654be30","0xd192e819d6ef5218","0xd69906245565a910","0xf40e35855771202a","0x106aa07032bbd1b8","0x19a4c116b8d2d0c8","0x1e376c085141ab53","0x2748774cdf8eeb99","0x34b0bcb5e19b48a8","0x391c0cb3c5c95a63","0x4ed8aa4ae3418acb","0x5b9cca4f7763e373","0x682e6ff3d6b2b8a3","0x748f82ee5defb2fc","0x78a5636f43172f60","0x84c87814a1f0ab72","0x8cc702081a6439ec","0x90befffa23631e28","0xa4506cebde82bde9","0xbef9a3f7b2c67915","0xc67178f2e372532b","0xca273eceea26619c","0xd186b8c721c0c207","0xeada7dd6cde0eb1e","0xf57d4f7fee6ed178","0x06f067aa72176fba","0x0a637dc5a2c898a6","0x113f9804bef90dae","0x1b710b35131c471b","0x28db77f523047d84","0x32caab7b40c72493","0x3c9ebe0a15c9bebc","0x431d67c49c100d4c","0x4cc5d4becb3e42b6","0x597f299cfc657e2a","0x5fcb6fab3ad6faec","0x6c44198c4a475817"].map(t=>BigInt(t))),ao=Kr[0],lo=Kr[1],we=new Uint32Array(80),ge=new Uint32Array(80),$t=class extends ye{constructor(e){super(128,e,16,!1)}get(){let{Ah:e,Al:n,Bh:r,Bl:o,Ch:i,Cl:c,Dh:s,Dl:a,Eh:f,El:u,Fh:d,Fl:l,Gh:h,Gl:p,Hh:b,Hl:x}=this;return[e,n,r,o,i,c,s,a,f,u,d,l,h,p,b,x]}set(e,n,r,o,i,c,s,a,f,u,d,l,h,p,b,x){this.Ah=e|0,this.Al=n|0,this.Bh=r|0,this.Bl=o|0,this.Ch=i|0,this.Cl=c|0,this.Dh=s|0,this.Dl=a|0,this.Eh=f|0,this.El=u|0,this.Fh=d|0,this.Fl=l|0,this.Gh=h|0,this.Gl=p|0,this.Hh=b|0,this.Hl=x|0}process(e,n){for(let I=0;I<16;I++,n+=4)we[I]=e.getUint32(n),ge[I]=e.getUint32(n+=4);for(let I=16;I<80;I++){let N=we[I-15]|0,C=ge[I-15]|0,D=Ee(N,C,1)^Ee(N,C,8)^Ht(N,C,7),V=ve(N,C,1)^ve(N,C,8)^Nt(N,C,7),K=we[I-2]|0,X=ge[I-2]|0,J=Ee(K,X,19)^Me(K,X,61)^Ht(K,X,6),U=ve(K,X,19)^qe(K,X,61)^Nt(K,X,6),L=Lr(V,U,ge[I-7],ge[I-16]),m=Hr(L,D,J,we[I-7],we[I-16]);we[I]=m|0,ge[I]=L|0}let{Ah:r,Al:o,Bh:i,Bl:c,Ch:s,Cl:a,Dh:f,Dl:u,Eh:d,El:l,Fh:h,Fl:p,Gh:b,Gl:x,Hh:v,Hl:O}=this;for(let I=0;I<80;I++){let N=Ee(d,l,14)^Ee(d,l,18)^Me(d,l,41),C=ve(d,l,14)^ve(d,l,18)^qe(d,l,41),D=d&h^~d&b,V=l&p^~l&x,K=Nr(O,C,V,lo[I],ge[I]),X=Dr(K,v,N,D,ao[I],we[I]),J=K|0,U=Ee(r,o,28)^Me(r,o,34)^Me(r,o,39),L=ve(r,o,28)^qe(r,o,34)^qe(r,o,39),m=r&i^r&s^i&s,R=o&c^o&a^c&a;v=b|0,O=x|0,b=h|0,x=p|0,h=d|0,p=l|0,{h:d,l}=fe(f|0,u|0,X|0,J|0),f=s|0,u=a|0,s=i|0,a=c|0,i=r|0,c=o|0;let y=Cr(J,L,R);r=Ur(y,X,U,m),o=y|0}({h:r,l:o}=fe(this.Ah|0,this.Al|0,r|0,o|0)),{h:i,l:c}=fe(this.Bh|0,this.Bl|0,i|0,c|0),{h:s,l:a}=fe(this.Ch|0,this.Cl|0,s|0,a|0),{h:f,l:u}=fe(this.Dh|0,this.Dl|0,f|0,u|0),{h:d,l}=fe(this.Eh|0,this.El|0,d|0,l|0),{h,l:p}=fe(this.Fh|0,this.Fl|0,h|0,p|0),{h:b,l:x}=fe(this.Gh|0,this.Gl|0,b|0,x|0),{h:v,l:O}=fe(this.Hh|0,this.Hl|0,v|0,O|0),this.set(r,o,i,c,s,a,f,u,d,l,h,p,b,x,v,O)}roundClean(){ee(we,ge)}destroy(){this.destroyed=!0,ee(this.buffer),this.set(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0)}},jt=class extends $t{constructor(){super(64);w(this,"Ah",W[0]|0);w(this,"Al",W[1]|0);w(this,"Bh",W[2]|0);w(this,"Bl",W[3]|0);w(this,"Ch",W[4]|0);w(this,"Cl",W[5]|0);w(this,"Dh",W[6]|0);w(this,"Dl",W[7]|0);w(this,"Eh",W[8]|0);w(this,"El",W[9]|0);w(this,"Fh",W[10]|0);w(this,"Fl",W[11]|0);w(this,"Gh",W[12]|0);w(this,"Gl",W[13]|0);w(this,"Hh",W[14]|0);w(this,"Hl",W[15]|0)}};var Be=Pe(()=>new Kt,Ct(1));var ze=Pe(()=>new jt,Ct(3));var z=(t,e,n)=>q(t,e,n),Mt=ne,qt=at,he=(...t)=>me(...t),ht=t=>Ft(t),zt=_t,Vt=t=>_r(t),ut=BigInt(0),Pt=BigInt(1);function Se(t,e=""){if(typeof t!="boolean"){let n=e&&`"${e}" `;throw new TypeError(n+"expected boolean, got type="+typeof t)}return t}function pt(t){if(typeof t=="bigint"){if(!lt(t))throw new RangeError("positive bigint expected, got "+t)}else Mt(t);return t}function Ve(t,e=""){if(typeof t!="number"){let n=e&&`"${e}" `;throw new TypeError(n+"expected number, got type="+typeof t)}if(!Number.isSafeInteger(t)){let n=e&&`"${e}" `;throw new RangeError(n+"expected safe integer, got "+t)}}function Ze(t){let e=pt(t).toString(16);return e.length&1?"0"+e:e}function $r(t){if(typeof t!="string")throw new TypeError("hex string expected, got "+typeof t);return t===""?ut:BigInt("0x"+t)}function Ue(t){return $r(at(t))}function Zt(t){return $r(at(uo(q(t)).reverse()))}function bt(t,e){if(ne(e),e===0)throw new RangeError("zero length");t=pt(t);let n=t.toString(16);if(n.length>e*2)throw new RangeError("number too large");return Ft(n.padStart(e*2,"0"))}function Gt(t,e){return bt(t,e).reverse()}function uo(t){return Uint8Array.from(z(t))}var lt=t=>typeof t=="bigint"&&ut<=t;function ho(t,e,n){return lt(t)&&lt(e)&&lt(n)&&e<=t&&t<n}function Wt(t,e,n,r){if(!ho(e,n,r))throw new RangeError("expected valid "+t+": "+n+" <= n < "+r+", got "+e)}function Le(t){if(t<ut)throw new Error("expected non-negative bigint, got "+t);let e;for(e=0;t>ut;t>>=Pt,e+=1);return e}var Ge=t=>(Pt<<BigInt(t))-Pt;function jr(t,e,n){if(ne(t,"hashLen"),ne(e,"qByteLen"),typeof n!="function")throw new TypeError("hmacFn must be a function");let r=x=>new Uint8Array(x),o=Uint8Array.of(),i=Uint8Array.of(0),c=Uint8Array.of(1),s=1e3,a=r(t),f=r(t),u=0,d=()=>{a.fill(1),f.fill(0),u=0},l=(...x)=>n(f,he(a,...x)),h=(x=o)=>{f=l(i,x),a=l(),x.length!==0&&(f=l(c,x),a=l())},p=()=>{if(u++>=s)throw new Error("drbg: tried max amount of iterations");let x=0,v=[];for(;x<e;){a=l();let O=a.slice();v.push(O),x+=a.length}return he(...v)};return(x,v)=>{d(),h(x);let O;for(;(O=v(p()))===void 0;)h();return d(),O}}function Ae(t,e={},n={}){if(Object.prototype.toString.call(t)!=="[object Object]")throw new TypeError("expected valid options object");function r(i,c,s){if(!s&&c!=="function"&&!Object.hasOwn(t,i))throw new TypeError(`param "${i}" is invalid: expected own property`);let a=t[i];if(s&&a===void 0)return;let f=typeof a;if(f!==c||a===null)throw new TypeError(`param "${i}" is invalid: expected ${c}, got ${f}`)}let o=(i,c)=>Object.entries(i).forEach(([s,a])=>r(s,a,c));o(e,!1),o(n,!0)}var Y=BigInt(0),P=BigInt(1),Re=BigInt(2),zr=BigInt(3),Vr=BigInt(4),Zr=BigInt(5),po=BigInt(7),Gr=BigInt(8),bo=BigInt(9),Wr=BigInt(16);function ie(t,e){if(e<=Y)throw new Error("mod: expected positive modulus, got "+e);let n=t%e;return n>=Y?n:e+n}function te(t,e,n){if(e<Y)throw new Error("pow2: expected non-negative exponent, got "+e);let r=t;for(;e-- >Y;)r*=r,r%=n;return r}function Pr(t,e){if(t===Y)throw new Error("invert: expected non-zero number");if(e<=Y)throw new Error("invert: expected positive modulus, got "+e);let n=ie(t,e),r=e,o=Y,i=P,c=P,s=Y;for(;n!==Y;){let f=r/n,u=r-n*f,d=o-c*f,l=i-s*f;r=n,n=u,o=c,i=s,c=d,s=l}if(r!==P)throw new Error("invert: does not exist");return ie(o,e)}function Yt(t,e,n){let r=t;if(!r.eql(r.sqr(e),n))throw new Error("Cannot find square root")}function Yr(t,e){let n=t,r=(n.ORDER+P)/Vr,o=n.pow(e,r);return Yt(n,o,e),o}function wo(t,e){let n=t,r=(n.ORDER-Zr)/Gr,o=n.mul(e,Re),i=n.pow(o,r),c=n.mul(e,i),s=n.mul(n.mul(c,Re),i),a=n.mul(c,n.sub(s,n.ONE));return Yt(n,a,e),a}function go(t){let e=He(t),n=Xr(t),r=n(e,e.neg(e.ONE)),o=n(e,r),i=n(e,e.neg(r)),c=(t+po)/Wr;return((s,a)=>{let f=s,u=f.pow(a,c),d=f.mul(u,r),l=f.mul(u,o),h=f.mul(u,i),p=f.eql(f.sqr(d),a),b=f.eql(f.sqr(l),a);u=f.cmov(u,d,p),d=f.cmov(h,l,b);let x=f.eql(f.sqr(d),a),v=f.cmov(u,d,x);return Yt(f,v,a),v})}function Xr(t){if(t<zr)throw new Error("sqrt is not defined for small field");let e=t-P,n=0;for(;e%Re===Y;)e/=Re,n++;let r=Re,o=He(t);for(;Mr(o,r)===1;)if(r++>1e3)throw new Error("Cannot find square root: probably non-prime P");if(n===1)return Yr;let i=o.pow(r,e),c=(e+P)/Re;return function(a,f){let u=a;if(u.is0(f))return f;if(Mr(u,f)!==1)throw new Error("Cannot find square root");let d=n,l=u.mul(u.ONE,i),h=u.pow(f,e),p=u.pow(f,c);for(;!u.eql(h,u.ONE);){if(u.is0(h))return u.ZERO;let b=1,x=u.sqr(h);for(;!u.eql(x,u.ONE);)if(b++,x=u.sqr(x),b===d)throw new Error("Cannot find square root");let v=P<<BigInt(d-b-1),O=u.pow(l,v);d=b,l=u.sqr(O),h=u.mul(h,l),p=u.mul(p,O)}return p}}function xo(t){return t%Vr===zr?Yr:t%Gr===Zr?wo:t%Wr===bo?go(t):Xr(t)}var mo=["create","isValid","is0","neg","inv","sqrt","sqr","eql","add","sub","mul","pow","div","addN","subN","mulN","sqrN"];function Xt(t){let e={ORDER:"bigint",BYTES:"number",BITS:"number"},n=mo.reduce((r,o)=>(r[o]="function",r),e);if(Ae(t,n),Ve(t.BYTES,"BYTES"),Ve(t.BITS,"BITS"),t.BYTES<1||t.BITS<1)throw new Error("invalid field: expected BYTES/BITS > 0");if(t.ORDER<=P)throw new Error("invalid field: expected ORDER > 1, got "+t.ORDER);return t}function yo(t,e,n){let r=t;if(n<Y)throw new Error("invalid exponent, negatives unsupported");if(n===Y)return r.ONE;if(n===P)return e;let o=r.ONE,i=e;for(;n>Y;)n&P&&(o=r.mul(o,i)),i=r.sqr(i),n>>=P;return o}function gt(t,e,n=!1){let r=t,o=new Array(e.length).fill(n?r.ZERO:void 0),i=e.reduce((s,a,f)=>r.is0(a)?s:(o[f]=s,r.mul(s,a)),r.ONE),c=r.inv(i);return e.reduceRight((s,a,f)=>r.is0(a)?s:(o[f]=r.mul(s,o[f]),r.mul(s,a)),c),o}function Mr(t,e){let n=t,r=(n.ORDER-P)/Re,o=n.pow(e,r),i=n.eql(o,n.ONE),c=n.eql(o,n.ZERO),s=n.eql(o,n.neg(n.ONE));if(!i&&!c&&!s)throw new Error("invalid Legendre symbol result");return i?1:c?0:-1}function Eo(t,e){if(e!==void 0&&Mt(e),t<=Y)throw new Error("invalid n length: expected positive n, got "+t);if(e!==void 0&&e<1)throw new Error("invalid n length: expected positive bit length, got "+e);let n=Le(t);if(e!==void 0&&e<n)throw new Error(`invalid n length: expected bit length (${n}) >= n.length (${e})`);let r=e!==void 0?e:n,o=Math.ceil(r/8);return{nBitLength:r,nByteLength:o}}var qr=new WeakMap,wt=class{constructor(e,n={}){w(this,"ORDER");w(this,"BITS");w(this,"BYTES");w(this,"isLE");w(this,"ZERO",Y);w(this,"ONE",P);w(this,"_lengths");w(this,"_mod");if(e<=P)throw new Error("invalid field: expected ORDER > 1, got "+e);let r;this.isLE=!1,n!=null&&typeof n=="object"&&(typeof n.BITS=="number"&&(r=n.BITS),typeof n.sqrt=="function"&&Object.defineProperty(this,"sqrt",{value:n.sqrt,enumerable:!0}),typeof n.isLE=="boolean"&&(this.isLE=n.isLE),n.allowedLengths&&(this._lengths=Object.freeze(n.allowedLengths.slice())),typeof n.modFromBytes=="boolean"&&(this._mod=n.modFromBytes));let{nBitLength:o,nByteLength:i}=Eo(e,r);if(i>2048)throw new Error("invalid field: expected ORDER of <= 2048 bytes");this.ORDER=e,this.BITS=o,this.BYTES=i,Object.freeze(this)}create(e){return ie(e,this.ORDER)}isValid(e){if(typeof e!="bigint")throw new TypeError("invalid field element: expected bigint, got "+typeof e);return Y<=e&&e<this.ORDER}is0(e){return e===Y}isValidNot0(e){return!this.is0(e)&&this.isValid(e)}isOdd(e){return(e&P)===P}neg(e){return ie(-e,this.ORDER)}eql(e,n){return e===n}sqr(e){return ie(e*e,this.ORDER)}add(e,n){return ie(e+n,this.ORDER)}sub(e,n){return ie(e-n,this.ORDER)}mul(e,n){return ie(e*n,this.ORDER)}pow(e,n){return yo(this,e,n)}div(e,n){return ie(e*Pr(n,this.ORDER),this.ORDER)}sqrN(e){return e*e}addN(e,n){return e+n}subN(e,n){return e-n}mulN(e,n){return e*n}inv(e){return Pr(e,this.ORDER)}sqrt(e){let n=qr.get(this);return n||qr.set(this,n=xo(this.ORDER)),n(this,e)}toBytes(e){return this.isLE?Gt(e,this.BYTES):bt(e,this.BYTES)}fromBytes(e,n=!1){z(e);let{_lengths:r,BYTES:o,isLE:i,ORDER:c,_mod:s}=this;if(r){if(e.length<1||!r.includes(e.length)||e.length>o)throw new Error("Field.fromBytes: expected "+r+" bytes, got "+e.length);let f=new Uint8Array(o);f.set(e,i?0:f.length-e.length),e=f}if(e.length!==o)throw new Error("Field.fromBytes: expected "+o+" bytes, got "+e.length);let a=i?Zt(e):Ue(e);if(s&&(a=ie(a,c)),!n&&!this.isValid(a))throw new Error("invalid field element: outside of range 0..ORDER");return a}invertBatch(e){return gt(this,e)}cmov(e,n,r){return Se(r,"condition"),r?n:e}};Object.freeze(wt.prototype);function He(t,e={}){return new wt(t,e)}function Qr(t){if(typeof t!="bigint")throw new Error("field order must be bigint");if(t<=P)throw new Error("field order must be greater than 1");let e=Le(t-P);return Math.ceil(e/8)}function Qt(t){let e=Qr(t);return e+Math.ceil(e/2)}function Jt(t,e,n=!1){z(t);let r=t.length,o=Qr(e),i=Math.max(Qt(e),16);if(r<i||r>1024)throw new Error("expected "+i+"-1024 bytes of input, got "+r);let c=n?Zt(t):Ue(t),s=ie(c,e-P)+P;return n?Gt(s,o):bt(s,o)}var Ne=BigInt(0),Ie=BigInt(1);function We(t,e){let n=e.negate();return t?n:e}function nr(t,e){let n=gt(t.Fp,e.map(r=>r.Z));return e.map((r,o)=>t.fromAffine(r.toAffine(n[o])))}function rn(t,e){if(!Number.isSafeInteger(t)||t<=0||t>e)throw new Error("invalid window size, expected [1.."+e+"], got W="+t)}function er(t,e){rn(t,e);let n=Math.ceil(e/t)+1,r=2**(t-1),o=2**t,i=Ge(t),c=BigInt(t);return{windows:n,windowSize:r,mask:i,maxNumber:o,shiftBy:c}}function Jr(t,e,n){let{windowSize:r,mask:o,maxNumber:i,shiftBy:c}=n,s=Number(t&o),a=t>>c;s>r&&(s-=i,a+=Ie);let f=e*r,u=f+Math.abs(s)-1,d=s===0,l=s<0,h=e%2!==0;return{nextN:a,offset:u,isZero:d,isNeg:l,isNegF:h,offsetF:f}}var tr=new WeakMap,nn=new WeakMap;function rr(t){return nn.get(t)||1}function en(t){if(t!==Ne)throw new Error("invalid wNAF")}var xt=class{constructor(e,n){w(this,"BASE");w(this,"ZERO");w(this,"Fn");w(this,"bits");this.BASE=e.BASE,this.ZERO=e.ZERO,this.Fn=e.Fn,this.bits=n}_unsafeLadder(e,n,r=this.ZERO){let o=e;for(;n>Ne;)n&Ie&&(r=r.add(o)),o=o.double(),n>>=Ie;return r}precomputeWindow(e,n){let{windows:r,windowSize:o}=er(n,this.bits),i=[],c=e,s=c;for(let a=0;a<r;a++){s=c,i.push(s);for(let f=1;f<o;f++)s=s.add(c),i.push(s);c=s.double()}return i}wNAF(e,n,r){if(!this.Fn.isValid(r))throw new Error("invalid scalar");let o=this.ZERO,i=this.BASE,c=er(e,this.bits);for(let s=0;s<c.windows;s++){let{nextN:a,offset:f,isZero:u,isNeg:d,isNegF:l,offsetF:h}=Jr(r,s,c);r=a,u?i=i.add(We(l,n[h])):o=o.add(We(d,n[f]))}return en(r),{p:o,f:i}}wNAFUnsafe(e,n,r,o=this.ZERO){let i=er(e,this.bits);for(let c=0;c<i.windows&&r!==Ne;c++){let{nextN:s,offset:a,isZero:f,isNeg:u}=Jr(r,c,i);if(r=s,!f){let d=n[a];o=o.add(u?d.negate():d)}}return en(r),o}getPrecomputes(e,n,r){let o=tr.get(n);return o||(o=this.precomputeWindow(n,e),e!==1&&(typeof r=="function"&&(o=r(o)),tr.set(n,o))),o}cached(e,n,r){let o=rr(e);return this.wNAF(o,this.getPrecomputes(o,e,r),n)}unsafe(e,n,r,o){let i=rr(e);return i===1?this._unsafeLadder(e,n,o):this.wNAFUnsafe(i,this.getPrecomputes(i,e,r),n,o)}createCache(e,n){rn(n,this.bits),nn.set(e,n),tr.delete(e)}hasCache(e){return rr(e)!==1}};function on(t,e,n,r){let o=e,i=t.ZERO,c=t.ZERO;for(;n>Ne||r>Ne;)n&Ie&&(i=i.add(o)),r&Ie&&(c=c.add(o)),o=o.double(),n>>=Ie,r>>=Ie;return{p1:i,p2:c}}function tn(t,e,n){if(e){if(e.ORDER!==t)throw new Error("Field.ORDER must match order: Fp == p, Fn == n");return Xt(e),e}else return He(t,{isLE:n})}function sn(t,e,n={},r){if(r===void 0&&(r=t==="edwards"),!e||typeof e!="object")throw new Error(`expected valid ${t} CURVE object`);for(let a of["p","n","h"]){let f=e[a];if(!(typeof f=="bigint"&&f>Ne))throw new Error(`CURVE.${a} must be positive bigint`)}let o=tn(e.p,n.Fp,r),i=tn(e.n,n.Fn,r),s=["Gx","Gy","a",t==="weierstrass"?"b":"d"];for(let a of s)if(!o.isValid(e[a]))throw new Error(`CURVE.${a} must be valid field element of CURVE.Fp`);return e=Object.freeze(Object.assign({},e)),{CURVE:e,Fp:o,Fn:i}}function cn(t,e){return function(r){let o=t(r);return{secretKey:o,publicKey:e(o)}}}var mt=class{constructor(e,n){w(this,"oHash");w(this,"iHash");w(this,"blockLen");w(this,"outputLen");w(this,"canXOF",!1);w(this,"finished",!1);w(this,"destroyed",!1);if(ke(e),q(n,void 0,"key"),this.iHash=e.create(),typeof this.iHash.update!="function")throw new Error("Expected instance of class which extends utils.Hash");this.blockLen=this.iHash.blockLen,this.outputLen=this.iHash.outputLen;let r=this.blockLen,o=new Uint8Array(r);o.set(n.length>r?e.create().update(n).digest():n);for(let i=0;i<o.length;i++)o[i]^=54;this.iHash.update(o),this.oHash=e.create();for(let i=0;i<o.length;i++)o[i]^=106;this.oHash.update(o),ee(o)}update(e){return Ce(this),this.iHash.update(e),this}digestInto(e){Ce(this),ft(e,this),this.finished=!0;let n=e.subarray(0,this.outputLen);this.iHash.digestInto(n),this.oHash.update(n),this.oHash.digestInto(n),this.destroy()}digest(){let e=new Uint8Array(this.oHash.outputLen);return this.digestInto(e),e}_cloneInto(e){e||(e=Object.create(Object.getPrototypeOf(this),{}));let{oHash:n,iHash:r,finished:o,destroyed:i,blockLen:c,outputLen:s}=this;return e=e,e.finished=o,e.destroyed=i,e.blockLen=c,e.outputLen=s,e.oHash=n._cloneInto(e.oHash),e.iHash=r._cloneInto(e.iHash),e}clone(){return this._cloneInto()}destroy(){this.destroyed=!0,this.oHash.destroy(),this.iHash.destroy()}},Te=(()=>{let t=((e,n,r)=>new mt(e,n).update(r).digest());return t.create=(e,n)=>new mt(e,n),t})();var fn=(t,e)=>(t+(t>=0?e:-e)/an)/e;function vo(t,e,n){Wt("scalar",t,ae,n);let[[r,o],[i,c]]=e,s=fn(c*t,n),a=fn(-o*t,n),f=t-s*r-a*i,u=-s*o-a*c,d=f<ae,l=u<ae;d&&(f=-f),l&&(u=-u);let h=Ge(Math.ceil(Le(n)/2))+xe;if(f<ae||f>=h||u<ae||u>=h)throw new Error("splitScalar (endomorphism): failed for k");return{k1neg:d,k1:f,k2neg:l,k2:u}}function ir(t){if(!["compact","recovered","der"].includes(t))throw new Error('Signature format must be "compact", "recovered", or "der"');return t}function or(t,e){Ae(t);let n={};for(let r of Object.keys(e))n[r]=t[r]===void 0?e[r]:t[r];return Se(n.lowS,"lowS"),Se(n.prehash,"prehash"),n.format!==void 0&&ir(n.format),n}var sr=class extends Error{constructor(e=""){super(e)}},se={Err:sr,_tlv:{encode:(t,e)=>{let{Err:n}=se;if(Ve(t,"tag"),t<0||t>255)throw new n("tlv.encode: wrong tag");if(typeof e!="string")throw new TypeError('"data" expected string, got type='+typeof e);if(e.length&1)throw new n("tlv.encode: unpadded data");let r=e.length/2,o=Ze(r);if(o.length/2&128)throw new n("tlv.encode: long form length too big");let i=r>127?Ze(o.length/2|128):"";return Ze(t)+i+o+e},decode(t,e){let{Err:n}=se;e=z(e,void 0,"DER data");let r=0;if(t<0||t>255)throw new n("tlv.encode: wrong tag");if(e.length<2||e[r++]!==t)throw new n("tlv.decode: wrong tlv");let o=e[r++],i=!!(o&128),c=0;if(!i)c=o;else{let a=o&127;if(!a)throw new n("tlv.decode(long): indefinite length not supported");if(a>4)throw new n("tlv.decode(long): byte length is too big");let f=e.subarray(r,r+a);if(f.length!==a)throw new n("tlv.decode: length bytes not complete");if(f[0]===0)throw new n("tlv.decode(long): zero leftmost byte");for(let u of f)c=c<<8|u;if(r+=a,c<128)throw new n("tlv.decode(long): not minimal encoding")}let s=e.subarray(r,r+c);if(s.length!==c)throw new n("tlv.decode: wrong value length");return{v:s,l:e.subarray(r+c)}}},_int:{encode(t){let{Err:e}=se;if(pt(t),t<ae)throw new e("integer: negative integers are not allowed");let n=Ze(t);if(Number.parseInt(n[0],16)&8&&(n="00"+n),n.length&1)throw new e("unexpected DER parsing assertion: unpadded hex");return n},decode(t){let{Err:e}=se;if(t.length<1)throw new e("invalid signature integer: empty");if(t[0]&128)throw new e("invalid signature integer: negative");if(t.length>1&&t[0]===0&&!(t[1]&128))throw new e("invalid signature integer: unnecessary leading zero");return Ue(t)}},toSig(t){let{Err:e,_int:n,_tlv:r}=se,o=z(t,void 0,"signature"),{v:i,l:c}=r.decode(48,o);if(c.length)throw new e("invalid signature: left bytes after parsing");let{v:s,l:a}=r.decode(2,i),{v:f,l:u}=r.decode(2,a);if(u.length)throw new e("invalid signature: left bytes after parsing");return{r:n.decode(s),s:n.decode(f)}},hexFromSig(t){let{_tlv:e,_int:n}=se,r=e.encode(2,n.encode(t.r)),o=e.encode(2,n.encode(t.s)),i=r+o;return e.encode(48,i)}};Object.freeze(se._tlv);Object.freeze(se._int);Object.freeze(se);var ae=BigInt(0),xe=BigInt(1),an=BigInt(2),yt=BigInt(3),Bo=BigInt(4);function dn(t,e={}){let n=sn("weierstrass",t,e),r=n.Fp,o=n.Fn,i=n.CURVE,{h:c,n:s}=i;Ae(e,{},{allowInfinityPoint:"boolean",clearCofactor:"function",isTorsionFree:"function",fromBytes:"function",toBytes:"function",endo:"object"});let{endo:a,allowInfinityPoint:f}=e;if(a&&(!r.is0(i.a)||typeof a.beta!="bigint"||!Array.isArray(a.basises)))throw new Error('invalid endo: expected "beta": bigint and "basises": array');let u=un(r,o);function d(){if(!r.isOdd)throw new Error("compression is not supported: Field does not have .isOdd()")}function l(L,m,R){if(f&&m.is0())return Uint8Array.of(0);let{x:y,y:g}=m.toAffine(),S=r.toBytes(y);if(Se(R,"isCompressed"),R){d();let A=!r.isOdd(g);return he(ln(A),S)}else return he(Uint8Array.of(4),S,r.toBytes(g))}function h(L){z(L,void 0,"Point");let{publicKey:m,publicKeyUncompressed:R}=u,y=L.length,g=L[0],S=L.subarray(1);if(f&&y===1&&g===0)return{x:r.ZERO,y:r.ZERO};if(y===m&&(g===2||g===3)){let A=r.fromBytes(S);if(!r.isValid(A))throw new Error("bad point: is not on curve, wrong x");let T=x(A),B;try{B=r.sqrt(T)}catch($){let H=$ instanceof Error?": "+$.message:"";throw new Error("bad point: is not on curve, sqrt error"+H)}d();let F=r.isOdd(B);return(g&1)===1!==F&&(B=r.neg(B)),{x:A,y:B}}else if(y===R&&g===4){let A=r.BYTES,T=r.fromBytes(S.subarray(0,A)),B=r.fromBytes(S.subarray(A,A*2));if(!v(T,B))throw new Error("bad point: is not on curve");return{x:T,y:B}}else throw new Error(`bad point: got length ${y}, expected compressed=${m} or uncompressed=${R}`)}let p=e.toBytes===void 0?l:e.toBytes,b=e.fromBytes===void 0?h:e.fromBytes;function x(L){let m=r.sqr(L),R=r.mul(m,L);return r.add(r.add(R,r.mul(L,i.a)),i.b)}function v(L,m){let R=r.sqr(m),y=x(L);return r.eql(R,y)}if(!v(i.Gx,i.Gy))throw new Error("bad curve params: generator point");let O=r.mul(r.pow(i.a,yt),Bo),I=r.mul(r.sqr(i.b),BigInt(27));if(r.is0(r.add(O,I)))throw new Error("bad curve params: a or b");function N(L,m,R=!1){if(!r.isValid(m)||R&&r.is0(m))throw new Error(`bad point coordinate ${L}`);return m}function C(L){if(!(L instanceof K))throw new Error("Weierstrass Point expected")}function D(L){if(!a||!a.basises)throw new Error("no endo");return vo(L,a.basises,o.ORDER)}function V(L,m,R,y,g){return R=new K(r.mul(R.X,L),R.Y,R.Z),m=We(y,m),R=We(g,R),m.add(R)}let U=class U{constructor(m,R,y){w(this,"X");w(this,"Y");w(this,"Z");this.X=N("x",m),this.Y=N("y",R,!0),this.Z=N("z",y),Object.freeze(this)}static CURVE(){return i}static fromAffine(m){let{x:R,y}=m||{};if(!m||!r.isValid(R)||!r.isValid(y))throw new Error("invalid affine point");if(m instanceof U)throw new Error("projective point not allowed");return r.is0(R)&&r.is0(y)?U.ZERO:new U(R,y,r.ONE)}static fromBytes(m){let R=U.fromAffine(b(z(m,void 0,"point")));return R.assertValidity(),R}static fromHex(m){return U.fromBytes(ht(m))}get x(){return this.toAffine().x}get y(){return this.toAffine().y}precompute(m=8,R=!0){return J.createCache(this,m),R||this.multiply(yt),this}assertValidity(){let m=this;if(m.is0()){if(e.allowInfinityPoint&&r.is0(m.X)&&r.eql(m.Y,r.ONE)&&r.is0(m.Z))return;throw new Error("bad point: ZERO")}let{x:R,y}=m.toAffine();if(!r.isValid(R)||!r.isValid(y))throw new Error("bad point: x or y not field elements");if(!v(R,y))throw new Error("bad point: equation left != right");if(!m.isTorsionFree())throw new Error("bad point: not in prime-order subgroup")}hasEvenY(){let{y:m}=this.toAffine();if(!r.isOdd)throw new Error("Field doesn't support isOdd");return!r.isOdd(m)}equals(m){C(m);let{X:R,Y:y,Z:g}=this,{X:S,Y:A,Z:T}=m,B=r.eql(r.mul(R,T),r.mul(S,g)),F=r.eql(r.mul(y,T),r.mul(A,g));return B&&F}negate(){return new U(this.X,r.neg(this.Y),this.Z)}double(){let{a:m,b:R}=i,y=r.mul(R,yt),{X:g,Y:S,Z:A}=this,T=r.ZERO,B=r.ZERO,F=r.ZERO,_=r.mul(g,g),$=r.mul(S,S),H=r.mul(A,A),k=r.mul(g,S);return k=r.add(k,k),F=r.mul(g,A),F=r.add(F,F),T=r.mul(m,F),B=r.mul(y,H),B=r.add(T,B),T=r.sub($,B),B=r.add($,B),B=r.mul(T,B),T=r.mul(k,T),F=r.mul(y,F),H=r.mul(m,H),k=r.sub(_,H),k=r.mul(m,k),k=r.add(k,F),F=r.add(_,_),_=r.add(F,_),_=r.add(_,H),_=r.mul(_,k),B=r.add(B,_),H=r.mul(S,A),H=r.add(H,H),_=r.mul(H,k),T=r.sub(T,_),F=r.mul(H,$),F=r.add(F,F),F=r.add(F,F),new U(T,B,F)}add(m){C(m);let{X:R,Y:y,Z:g}=this,{X:S,Y:A,Z:T}=m,B=r.ZERO,F=r.ZERO,_=r.ZERO,$=i.a,H=r.mul(i.b,yt),k=r.mul(R,S),Z=r.mul(y,A),j=r.mul(g,T),re=r.add(R,y),M=r.add(S,A);re=r.mul(re,M),M=r.add(k,Z),re=r.sub(re,M),M=r.add(R,g);let G=r.add(S,T);return M=r.mul(M,G),G=r.add(k,j),M=r.sub(M,G),G=r.add(y,g),B=r.add(A,T),G=r.mul(G,B),B=r.add(Z,j),G=r.sub(G,B),_=r.mul($,M),B=r.mul(H,j),_=r.add(B,_),B=r.sub(Z,_),_=r.add(Z,_),F=r.mul(B,_),Z=r.add(k,k),Z=r.add(Z,k),j=r.mul($,j),M=r.mul(H,M),Z=r.add(Z,j),j=r.sub(k,j),j=r.mul($,j),M=r.add(M,j),k=r.mul(Z,M),F=r.add(F,k),k=r.mul(G,M),B=r.mul(re,B),B=r.sub(B,k),k=r.mul(re,Z),_=r.mul(G,_),_=r.add(_,k),new U(B,F,_)}subtract(m){return C(m),this.add(m.negate())}is0(){return this.equals(U.ZERO)}multiply(m){let{endo:R}=e;if(!o.isValidNot0(m))throw new RangeError("invalid scalar: out of range");let y,g,S=A=>J.cached(this,A,T=>nr(U,T));if(R){let{k1neg:A,k1:T,k2neg:B,k2:F}=D(m),{p:_,f:$}=S(T),{p:H,f:k}=S(F);g=$.add(k),y=V(R.beta,_,H,A,B)}else{let{p:A,f:T}=S(m);y=A,g=T}return nr(U,[y,g])[0]}multiplyUnsafe(m){let{endo:R}=e,y=this,g=m;if(!o.isValid(g))throw new RangeError("invalid scalar: out of range");if(g===ae||y.is0())return U.ZERO;if(g===xe)return y;if(J.hasCache(this))return this.multiply(g);if(R){let{k1neg:S,k1:A,k2neg:T,k2:B}=D(g),{p1:F,p2:_}=on(U,y,A,B);return V(R.beta,F,_,S,T)}else return J.unsafe(y,g)}toAffine(m){let R=this,y=m,{X:g,Y:S,Z:A}=R;if(r.eql(A,r.ONE))return{x:g,y:S};let T=R.is0();y==null&&(y=T?r.ONE:r.inv(A));let B=r.mul(g,y),F=r.mul(S,y),_=r.mul(A,y);if(T)return{x:r.ZERO,y:r.ZERO};if(!r.eql(_,r.ONE))throw new Error("invZ was invalid");return{x:B,y:F}}isTorsionFree(){let{isTorsionFree:m}=e;return c===xe?!0:m?m(U,this):J.unsafe(this,s).is0()}clearCofactor(){let{clearCofactor:m}=e;return c===xe?this:m?m(U,this):this.multiplyUnsafe(c)}isSmallOrder(){return c===xe?this.is0():this.clearCofactor().is0()}toBytes(m=!0){return Se(m,"isCompressed"),this.assertValidity(),p(U,this,m)}toHex(m=!0){return qt(this.toBytes(m))}toString(){return`<Point ${this.is0()?"ZERO":this.toHex()}>`}};w(U,"BASE",new U(i.Gx,i.Gy,r.ONE)),w(U,"ZERO",new U(r.ZERO,r.ONE,r.ZERO)),w(U,"Fp",r),w(U,"Fn",o);let K=U,X=o.BITS,J=new xt(K,e.endo?Math.ceil(X/2):X);return X>=8&&K.BASE.precompute(8),Object.freeze(K.prototype),Object.freeze(K),K}function ln(t){return Uint8Array.of(t?2:3)}function un(t,e){return{secretKey:e.BYTES,publicKey:1+t.BYTES,publicKeyUncompressed:1+2*t.BYTES,publicKeyHasPrefix:!0,signature:2*e.BYTES}}function So(t,e={}){let{Fn:n}=t,r=e.randomBytes===void 0?Vt:e.randomBytes,o=Object.assign(un(t.Fp,n),{seed:Math.max(Qt(n.ORDER),16)});function i(h){try{let p=n.fromBytes(h);return n.isValidNot0(p)}catch{return!1}}function c(h,p){let{publicKey:b,publicKeyUncompressed:x}=o;try{let v=h.length;return p===!0&&v!==b||p===!1&&v!==x?!1:!!t.fromBytes(h)}catch{return!1}}function s(h){return h=h===void 0?r(o.seed):h,Jt(z(h,o.seed,"seed"),n.ORDER)}function a(h,p=!0){return t.BASE.multiply(n.fromBytes(h)).toBytes(p)}function f(h){let{secretKey:p,publicKey:b,publicKeyUncompressed:x}=o,v=n._lengths;if(!zt(h))return;let O=z(h,void 0,"key").length,I=O===b||O===x,N=O===p||!!v?.includes(O);if(!(I&&N))return I}function u(h,p,b=!0){if(f(h)===!0)throw new Error("first arg must be private key");if(f(p)===!1)throw new Error("second arg must be public key");let x=n.fromBytes(h);return t.fromBytes(p).multiply(x).toBytes(b)}let d={isValidSecretKey:i,isValidPublicKey:c,randomSecretKey:s},l=cn(s,a);return Object.freeze(d),Object.freeze(o),Object.freeze({getPublicKey:a,getSharedSecret:u,keygen:l,Point:t,utils:d,lengths:o})}function hn(t,e,n={}){let r=e;ke(r),Ae(n,{},{hmac:"function",lowS:"boolean",randomBytes:"function",bits2int:"function",bits2int_modN:"function"}),n=Object.assign({},n);let o=n.randomBytes===void 0?Vt:n.randomBytes,i=n.hmac===void 0?(y,g)=>Te(r,y,g):n.hmac,{Fp:c,Fn:s}=t,{ORDER:a,BITS:f}=s,{keygen:u,getPublicKey:d,getSharedSecret:l,utils:h,lengths:p}=So(t,n),b={prehash:!0,lowS:typeof n.lowS=="boolean"?n.lowS:!0,format:"compact",extraEntropy:!1},x=a*an+xe<c.ORDER;function v(y){let g=a>>xe;return y>g}function O(y,g){if(!s.isValidNot0(g))throw new Error(`invalid signature ${y}: out of range 1..Point.Fn.ORDER`);return g}function I(){if(x)throw new Error('"recovered" sig type is not supported for cofactor >2 curves')}function N(y,g){ir(g);let S=p.signature,A=g==="compact"?S:g==="recovered"?S+1:void 0;return z(y,A)}class C{constructor(g,S,A){w(this,"r");w(this,"s");w(this,"recovery");if(this.r=O("r",g),this.s=O("s",S),A!=null){if(I(),![0,1,2,3].includes(A))throw new Error("invalid recovery id");this.recovery=A}Object.freeze(this)}static fromBytes(g,S=b.format){N(g,S);let A;if(S==="der"){let{r:_,s:$}=se.toSig(z(g));return new C(_,$)}S==="recovered"&&(A=g[0],S="compact",g=g.subarray(1));let T=p.signature/2,B=g.subarray(0,T),F=g.subarray(T,T*2);return new C(s.fromBytes(B),s.fromBytes(F),A)}static fromHex(g,S){return this.fromBytes(ht(g),S)}assertRecovery(){let{recovery:g}=this;if(g==null)throw new Error("invalid recovery id: must be present");return g}addRecoveryBit(g){return new C(this.r,this.s,g)}recoverPublicKey(g){let{r:S,s:A}=this,T=this.assertRecovery(),B=T===2||T===3?S+a:S;if(!c.isValid(B))throw new Error("invalid recovery id: sig.r+curve.n != R.x");let F=c.toBytes(B),_=t.fromBytes(he(ln((T&1)===0),F)),$=s.inv(B),H=V(z(g,void 0,"msgHash")),k=s.create(-H*$),Z=s.create(A*$),j=t.BASE.multiplyUnsafe(k).add(_.multiplyUnsafe(Z));if(j.is0())throw new Error("invalid recovery: point at infinify");return j.assertValidity(),j}hasHighS(){return v(this.s)}toBytes(g=b.format){if(ir(g),g==="der")return ht(se.hexFromSig(this));let{r:S,s:A}=this,T=s.toBytes(S),B=s.toBytes(A);return g==="recovered"?(I(),he(Uint8Array.of(this.assertRecovery()),T,B)):he(T,B)}toHex(g){return qt(this.toBytes(g))}}Object.freeze(C.prototype),Object.freeze(C);let D=n.bits2int===void 0?function(g){if(g.length>8192)throw new Error("input is too large");let S=Ue(g),A=g.length*8-f;return A>0?S>>BigInt(A):S}:n.bits2int,V=n.bits2int_modN===void 0?function(g){return s.create(D(g))}:n.bits2int_modN,K=Ge(f);function X(y){return Wt("num < 2^"+f,y,ae,K),s.toBytes(y)}function J(y,g){return z(y,void 0,"message"),g?z(r(y),void 0,"prehashed message"):y}function U(y,g,S){let{lowS:A,prehash:T,extraEntropy:B}=or(S,b);y=J(y,T);let F=V(y),_=s.fromBytes(g);if(!s.isValidNot0(_))throw new Error("invalid private key");let $=[X(_),X(F)];if(B!=null&&B!==!1){let j=B===!0?o(p.secretKey):B;$.push(z(j,void 0,"extraEntropy"))}let H=he(...$),k=F;function Z(j){let re=D(j);if(!s.isValidNot0(re))return;let M=s.inv(re),G=t.BASE.multiply(re).toAffine(),$e=s.create(G.x);if($e===ae)return;let st=s.create(M*s.create(k+$e*_));if(st===ae)return;let Ar=(G.x===$e?0:2)|Number(G.y&xe),Rr=st;return A&&v(st)&&(Rr=s.neg(st),Ar^=1),new C($e,Rr,x?void 0:Ar)}return{seed:H,k2sig:Z}}function L(y,g,S={}){let{seed:A,k2sig:T}=U(y,g,S);return jr(r.outputLen,s.BYTES,i)(A,T).toBytes(S.format)}function m(y,g,S,A={}){let{lowS:T,prehash:B,format:F}=or(A,b);if(S=z(S,void 0,"publicKey"),g=J(g,B),!zt(y)){let _=y instanceof C?", use sig.toBytes()":"";throw new Error("verify expects Uint8Array signature"+_)}N(y,F);try{let _=C.fromBytes(y,F),$=t.fromBytes(S);if(T&&_.hasHighS())return!1;let{r:H,s:k}=_,Z=V(g),j=s.inv(k),re=s.create(Z*j),M=s.create(H*j),G=t.BASE.multiplyUnsafe(re).add($.multiplyUnsafe(M));return G.is0()?!1:s.create(G.x)===H}catch{return!1}}function R(y,g,S={}){let{prehash:A}=or(S,b);return g=J(g,A),C.fromBytes(y,"recovered").recoverPublicKey(g).toBytes()}return Object.freeze({keygen:u,getPublicKey:d,getSharedSecret:l,utils:h,lengths:p,Point:t,sign:L,verify:m,recoverPublicKey:R,Signature:C,hash:r})}var fr={p:BigInt("0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffefffffc2f"),n:BigInt("0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141"),h:BigInt(1),a:BigInt(0),b:BigInt(7),Gx:BigInt("0x79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798"),Gy:BigInt("0x483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8")},Ao={beta:BigInt("0x7ae96a2b657c07106e64479eac3434e99cf0497512f58995c1396c28719501ee"),basises:[[BigInt("0x3086d221a7d46bcde86c90e49284eb15"),-BigInt("0xe4437ed6010e88286f547fa90abfe4c3")],[BigInt("0x114ca50f7a8e2f3f657c1108d9d44cfd8"),BigInt("0x3086d221a7d46bcde86c90e49284eb15")]]};var pn=BigInt(2);function Ro(t){let e=fr.p,n=BigInt(3),r=BigInt(6),o=BigInt(11),i=BigInt(22),c=BigInt(23),s=BigInt(44),a=BigInt(88),f=t*t*t%e,u=f*f*t%e,d=te(u,n,e)*u%e,l=te(d,n,e)*u%e,h=te(l,pn,e)*f%e,p=te(h,o,e)*h%e,b=te(p,i,e)*p%e,x=te(b,s,e)*b%e,v=te(x,a,e)*x%e,O=te(v,s,e)*b%e,I=te(O,n,e)*u%e,N=te(I,c,e)*p%e,C=te(N,r,e)*f%e,D=te(C,pn,e);if(!cr.eql(cr.sqr(D),t))throw new Error("Cannot find square root");return D}var cr=He(fr.p,{sqrt:Ro}),Io=dn(fr,{Fp:cr,endo:Ao}),De=hn(Io,Be);var To=Uint8Array.from([7,4,13,1,10,6,15,3,12,0,9,5,2,14,11,8]),wn=Uint8Array.from(new Array(16).fill(0).map((t,e)=>e)),Oo=wn.map(t=>(9*t+5)%16),gn=(()=>{let n=[[wn],[Oo]];for(let r=0;r<4;r++)for(let o of n)o.push(o[r].map(i=>To[i]));return n})(),xn=gn[0],mn=gn[1],yn=[[11,14,15,12,5,8,7,9,11,13,14,15,6,7,9,8],[12,13,11,15,6,9,9,7,12,15,11,13,7,8,7,7],[13,15,14,11,7,7,6,8,13,14,13,12,5,5,6,9],[14,11,12,14,8,6,5,5,15,12,15,14,9,9,8,6],[15,12,13,13,9,5,8,6,14,11,12,11,8,6,5,5]].map(t=>Uint8Array.from(t)),_o=xn.map((t,e)=>t.map(n=>yn[e][n])),Fo=mn.map((t,e)=>t.map(n=>yn[e][n])),ko=Uint32Array.from([0,1518500249,1859775393,2400959708,2840853838]),Co=Uint32Array.from([1352829926,1548603684,1836072691,2053994217,0]);function bn(t,e,n,r){return t===0?e^n^r:t===1?e&n|~e&r:t===2?(e|~n)^r:t===3?e&r|n&~r:e^(n|~r)}var Et=new Uint32Array(16),ar=class extends ye{constructor(){super(64,20,8,!0);w(this,"h0",1732584193);w(this,"h1",-271733879);w(this,"h2",-1732584194);w(this,"h3",271733878);w(this,"h4",-1009589776)}get(){let{h0:n,h1:r,h2:o,h3:i,h4:c}=this;return[n,r,o,i,c]}set(n,r,o,i,c){this.h0=n|0,this.h1=r|0,this.h2=o|0,this.h3=i|0,this.h4=c|0}process(n,r){for(let p=0;p<16;p++,r+=4)Et[p]=n.getUint32(r,!0);let o=this.h0|0,i=o,c=this.h1|0,s=c,a=this.h2|0,f=a,u=this.h3|0,d=u,l=this.h4|0,h=l;for(let p=0;p<5;p++){let b=4-p,x=ko[p],v=Co[p],O=xn[p],I=mn[p],N=_o[p],C=Fo[p];for(let D=0;D<16;D++){let V=je(o+bn(p,c,a,u)+Et[O[D]]+x,N[D])+l|0;o=l,l=u,u=je(a,10)|0,a=c,c=V}for(let D=0;D<16;D++){let V=je(i+bn(b,s,f,d)+Et[I[D]]+v,C[D])+h|0;i=h,h=d,d=je(f,10)|0,f=s,s=V}}this.set(this.h1+a+d|0,this.h2+u+h|0,this.h3+l+i|0,this.h4+o+s|0,this.h0+c+f|0)}roundClean(){ee(Et)}destroy(){this.destroyed=!0,ee(this.buffer),this.set(0,0,0,0,0)}},vt=Pe(()=>new ar);function Xe(t){return t instanceof Uint8Array||ArrayBuffer.isView(t)&&t.constructor.name==="Uint8Array"&&"BYTES_PER_ELEMENT"in t&&t.BYTES_PER_ELEMENT===1}function An(t,e){return Array.isArray(e)?e.length===0?!0:t?e.every(n=>typeof n=="string"):e.every(n=>Number.isSafeInteger(n)):!1}function ur(t){if(typeof t!="function")throw new TypeError("function expected");return!0}function Qe(t,e){if(typeof e!="string")throw new TypeError(`${t}: string expected`);return!0}function Je(t){if(typeof t!="number")throw new TypeError(`number expected, got ${typeof t}`);if(!Number.isSafeInteger(t))throw new RangeError(`invalid integer: ${t}`)}function St(t){if(!Array.isArray(t))throw new TypeError("array expected")}function Rn(t,e){if(!An(!0,e))throw new TypeError(`${t}: array of strings expected`)}function hr(t,e){if(!An(!1,e))throw new TypeError(`${t}: array of numbers expected`)}function pr(...t){let e=i=>i,n=(i,c)=>s=>i(c(s)),r=t.map(i=>i.encode).reduceRight(n,e),o=t.map(i=>i.decode).reduce(n,e);return{encode:r,decode:o}}function In(t){let e=typeof t=="string"?t.split(""):t,n=e.length;Rn("alphabet",e);let r=new Map(e.map((o,i)=>[o,i]));return{encode:o=>(St(o),o.map(i=>{if(!Number.isSafeInteger(i)||i<0||i>=n)throw new Error(`alphabet.encode: digit index outside alphabet "${i}". Allowed: ${t}`);return e[i]})),decode:o=>(St(o),o.map(i=>{Qe("alphabet.decode",i);let c=r.get(i);if(c===void 0)throw new Error(`Unknown letter: "${i}". Allowed: ${t}`);return c}))}}function Tn(t=""){return Qe("join",t),{encode:e=>(Rn("join.decode",e),e.join(t)),decode:e=>(Qe("join.decode",e),e.split(t))}}function En(t,e,n){if(e<2)throw new RangeError(`convertRadix: invalid from=${e}, base cannot be less than 2`);if(n<2)throw new RangeError(`convertRadix: invalid to=${n}, base cannot be less than 2`);if(St(t),!t.length)return[];let r=0,o=[],i=Array.from(t,s=>{if(Je(s),s<0||s>=e)throw new Error(`invalid integer: ${s}`);return s}),c=i.length;for(;;){let s=0,a=!0;for(let f=r;f<c;f++){let u=i[f],d=e*s,l=d+u;if(!Number.isSafeInteger(l)||d/e!==s||l-u!==d)throw new Error("convertRadix: carry overflow");let h=l/n;s=l%n;let p=Math.floor(h);if(i[f]=p,!Number.isSafeInteger(p)||p*n+s!==l)throw new Error("convertRadix: carry overflow");if(a)p?a=!1:r=f;else continue}if(o.push(s),a)break}for(let s=0;s<t.length-1&&t[s]===0;s++)o.push(0);return o.reverse()}var On=(t,e)=>e===0?t:On(e,t%e),At=(t,e)=>t+(e-On(t,e)),Bt=(()=>{let t=[];for(let e=0;e<40;e++)t.push(2**e);return t})();function dr(t,e,n,r){if(St(t),e<=0||e>32)throw new RangeError(`convertRadix2: wrong from=${e}`);if(n<=0||n>32)throw new RangeError(`convertRadix2: wrong to=${n}`);if(At(e,n)>32)throw new Error(`convertRadix2: carry overflow from=${e} to=${n} carryBits=${At(e,n)}`);let o=0,i=0,c=Bt[e],s=Bt[n]-1,a=[];for(let f of t){if(Je(f),f>=c)throw new Error(`convertRadix2: invalid data word=${f} from=${e}`);if(o=o<<e|f,i+e>32)throw new Error(`convertRadix2: carry overflow pos=${i} from=${e}`);for(i+=e;i>=n;i-=n)a.push((o>>i-n&s)>>>0);let u=Bt[i];if(u===void 0)throw new Error("invalid carry");o&=u-1}if(o=o<<n-i&s,!r&&i>=e)throw new Error("Excess padding");if(!r&&o>0)throw new Error(`Non-zero padding: ${o}`);return r&&i>0&&a.push(o>>>0),a}function Uo(t){Je(t);let e=2**8;return{encode:n=>{if(!Xe(n))throw new TypeError("radix.encode input should be Uint8Array");return En(Array.from(n),e,t)},decode:n=>(hr("radix.decode",n),Uint8Array.from(En(n,t,e)))}}function Lo(t,e=!1){if(Je(t),t<=0||t>32)throw new RangeError("radix2: bits should be in (0..32]");if(At(8,t)>32||At(t,8)>32)throw new RangeError("radix2: carry overflow");return{encode:n=>{if(!Xe(n))throw new TypeError("radix2.encode input should be Uint8Array");return dr(Array.from(n),8,t,!e)},decode:n=>(hr("radix2.decode",n),Uint8Array.from(dr(n,t,8,e)))}}function vn(t){return ur(t),function(...e){try{return t.apply(null,e)}catch{}}}function Ho(t,e){if(Je(t),t<=0)throw new RangeError(`checksum length must be positive: ${t}`);ur(e);let n=e;return{encode(r){if(!Xe(r))throw new TypeError("checksum.encode: input should be Uint8Array");let o=n(r).slice(0,t),i=new Uint8Array(r.length+t);return i.set(r),i.set(o,r.length),i},decode(r){if(!Xe(r))throw new TypeError("checksum.decode: input should be Uint8Array");let o=r.slice(0,-t),i=r.slice(-t),c=n(o).slice(0,t);for(let s=0;s<t;s++)if(c[s]!==i[s])throw new Error("Invalid checksum");return o}}}var No=t=>pr(Uo(58),In(t),Tn("")),Do=Object.freeze(No("123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"));var _n=t=>{ur(t);let e=t;return pr(Ho(4,n=>e(e(n))),Do)};var lr=pr(In("qpzry9x8gf2tvdw0s3jn54khce6mua7l"),Tn("")),Bn=[996825010,642813549,513874426,1027748829,705979059];function Ye(t){let e=t>>25,n=(t&33554431)<<5;for(let r=0;r<Bn.length;r++)(e>>r&1)===1&&(n^=Bn[r]);return n}function Sn(t,e,n=1){let r=t.length,o=1;for(let i=0;i<r;i++){let c=t.charCodeAt(i);if(c<33||c>126)throw new Error(`Invalid prefix (${t})`);o=Ye(o)^c>>5}o=Ye(o);for(let i=0;i<r;i++)o=Ye(o)^t.charCodeAt(i)&31;for(let i of e)o=Ye(o)^i;for(let i=0;i<6;i++)o=Ye(o);return o^=n,lr.encode(dr([o%Bt[30]],30,5,!1))}function Ko(t){let e=t==="bech32"?1:734539939,n=Lo(5),r=n.decode,o=n.encode,i=vn(r);function c(d,l,h=90){Qe("bech32.encode prefix",d),Xe(l)&&(l=Array.from(l)),hr("bech32.encode",l);let p=d.length;if(p===0)throw new TypeError(`Invalid prefix length ${p}`);let b=p+7+l.length;if(h!==!1&&b>h)throw new TypeError(`Length ${b} exceeds limit ${h}`);let x=d.toLowerCase(),v=Sn(x,l,e);return`${x}1${lr.encode(l)}${v}`}function s(d,l=90){Qe("bech32.decode input",d);let h=d.length;if(h<8||l!==!1&&h>l)throw new TypeError(`invalid string length: ${h} (${d}). Expected (8..${l})`);let p=d.toLowerCase();if(d!==p&&d!==d.toUpperCase())throw new Error("String must be lowercase or uppercase");let b=p.lastIndexOf("1");if(b===0||b===-1)throw new Error('Letter "1" must be present between prefix and data only');let x=p.slice(0,b),v=p.slice(b+1);if(v.length<6)throw new Error("Data must be at least 6 characters long");let O=lr.decode(v).slice(0,-6),I=Sn(x,O,e);if(!v.endsWith(I))throw new Error(`Invalid checksum in ${d}: expected "${I}"`);return{prefix:x,words:O}}let a=vn(s);function f(d){let{prefix:l,words:h}=s(d,!1);return{prefix:l,words:h,bytes:r(h)}}function u(d,l){return c(d,o(l))}return{encode:c,decode:s,encodeFromBytes:u,decodeToBytes:f,decodeUnsafe:a,fromWords:r,fromWordsUnsafe:i,toWords:o}}var br=Object.freeze(Ko("bech32"));var tt=De.Point,et=tt.Fn,wr=_n(Be),$o=Uint8Array.from("Bitcoin seed".split(""),t=>t.charCodeAt(0)),gr={private:76066276,public:76067358},xr=2147483648,jo=t=>vt(Be(t)),Po=t=>ce(t).getUint32(0,!1),Rt=t=>{if(typeof t!="number")throw new TypeError("invalid number, should be from 0 to 2**32-1, got "+t);if(!Number.isSafeInteger(t)||t<0||t>2**32-1)throw new RangeError("invalid number, should be from 0 to 2**32-1, got "+t);let e=new Uint8Array(4);return ce(e).setUint32(0,t,!1),e},pe=class t{constructor(e){w(this,"versions");w(this,"depth",0);w(this,"index",0);w(this,"chainCode",null);w(this,"parentFingerprint",0);w(this,"_privateKey");w(this,"_publicKey");w(this,"pubHash");if(!e||typeof e!="object")throw new Error("HDKey.constructor must not be called directly");if(this.versions=e.versions||gr,this.depth=e.depth||0,this.chainCode=e.chainCode?Uint8Array.from(e.chainCode):null,this.index=e.index||0,this.parentFingerprint=e.parentFingerprint||0,!this.depth&&(this.parentFingerprint||this.index))throw new Error("HDKey: zero depth with non-zero index/parent fingerprint");if(this.depth>255)throw new Error("HDKey: depth exceeds the serializable value 255");if(e.publicKey&&e.privateKey)throw new Error("HDKey: publicKey and privateKey at same time.");if(e.privateKey){if(!De.utils.isValidSecretKey(e.privateKey))throw new Error("Invalid private key");this._privateKey=Uint8Array.from(e.privateKey),this._publicKey=De.getPublicKey(this._privateKey,!0)}else if(e.publicKey)this._publicKey=tt.fromBytes(e.publicKey).toBytes(!0);else throw new Error("HDKey: no public or private key provided");this.pubHash=jo(this._publicKey)}get fingerprint(){if(!this.pubHash)throw new Error("No publicKey set!");return Po(this.pubHash)}get identifier(){return this.pubHash}get pubKeyHash(){return this.pubHash}get privateKey(){return this._privateKey||null}get publicKey(){return this._publicKey||null}get privateExtendedKey(){let e=this._privateKey;if(!e)throw new Error("No private key");return wr.encode(this.serialize(this.versions.private,me(Uint8Array.of(0),e)))}get publicExtendedKey(){if(!this._publicKey)throw new Error("No public key");return wr.encode(this.serialize(this.versions.public,this._publicKey))}static fromMasterSeed(e,n=gr){if(q(e),8*e.length<128||8*e.length>512)throw new RangeError("HDKey: seed length must be between 128 and 512 bits; 256 bits is advised, got "+e.length);let r=Te(ze,$o,e),o=r.slice(0,32),i=r.slice(32);return new t({versions:n,chainCode:i,privateKey:o})}static fromExtendedKey(e,n=gr){let r=wr.decode(e),o=ce(r),i=o.getUint32(0,!1),c={versions:n,depth:r[4],parentFingerprint:o.getUint32(5,!1),index:o.getUint32(9,!1),chainCode:r.slice(13,45)},s=r.slice(45),a=s[0]===0;if(i!==n[a?"private":"public"])throw new Error("Version mismatch");return a?new t({...c,privateKey:s.slice(1)}):new t({...c,publicKey:s})}static fromJSON(e){return t.fromExtendedKey(e.xpriv)}derive(e){if(!/^[mM]'?/.test(e))throw new Error('Path must start with "m" or "M"');if(/^[mM]'?$/.test(e))return this;let n=e.replace(/^[mM]'?\//,"").split("/"),r=this;for(let o of n){let i=/^(\d+)('?)$/.exec(o),c=i&&i[1];if(!i||i.length!==3||typeof c!="string")throw new Error("invalid child index: "+o);let s=+c;if(!Number.isSafeInteger(s)||s>=xr)throw new Error("Invalid index");i[2]==="'"&&(s+=xr),r=r.deriveChild(s)}return r}deriveChild(e,n){if(!this._publicKey||!this.chainCode)throw new Error("No publicKey or chainCode set");let r=Rt(e);if(e>=xr){let a=this._privateKey;if(!a)throw new Error("Could not derive hardened child key");r=me(Uint8Array.of(0),a,r)}else r=me(this._publicKey,r);let o=n||Te(ze,this.chainCode,r);q(o,64);let i=o.slice(0,32),c=o.slice(32),s={versions:this.versions,chainCode:c,depth:this.depth+1,parentFingerprint:this.fingerprint,index:e};if(s.depth>255)throw new Error("HDKey: depth exceeds the serializable value 255");try{let a=et.fromBytes(i);if(this._privateKey){let f=et.create(et.fromBytes(this._privateKey)+a);if(!et.isValidNot0(f))throw new Error("The tweak was out of range or the resulted private key is invalid");s.privateKey=et.toBytes(f)}else{let f=tt.fromBytes(this._publicKey),u=a===0n?f:f.add(tt.BASE.multiply(a));if(u.equals(tt.ZERO))throw new Error("The tweak was equal to negative P, which made the result key invalid");s.publicKey=u.toBytes(!0)}return new t(s)}catch{return this.deriveChild(e+1)}}sign(e){if(!this._privateKey)throw new Error("No privateKey set!");return q(e,32),De.sign(e,this._privateKey,{prehash:!1})}verify(e,n){if(q(e,32),q(n,64),!this._publicKey)throw new Error("No publicKey set!");return De.verify(n,e,this._publicKey,{prehash:!1})}wipePrivateData(){return this._privateKey&&(this._privateKey.fill(0),this._privateKey=void 0),this}toJSON(){return{xpriv:this.privateExtendedKey,xpub:this.publicExtendedKey}}serialize(e,n){if(!this.chainCode)throw new Error("No chainCode set");return q(n,33),me(Rt(e),new Uint8Array([this.depth]),Rt(this.parentFingerprint),Rt(this.index),this.chainCode,n)}};function Mo(t,e,n,r){ke(t);let o=Or({dkLen:32,asyncTick:10},r),{c:i,dkLen:c,asyncTick:s}=o;if(ne(i,"c"),ne(c,"dkLen"),ne(s,"asyncTick"),i<1)throw new Error("iterations (c) must be >= 1");if(c<1)throw new Error('"dkLen" must be >= 1');if(c>(2**32-1)*t.outputLen)throw new Error("derived key too long");let a=kt(e,"password"),f=kt(n,"salt"),u=new Uint8Array(c),d=Te.create(t,a),l=d._cloneInto().update(f);return{c:i,dkLen:c,asyncTick:s,DK:u,PRF:d,PRFSalt:l}}function qo(t,e,n,r,o){return t.destroy(),e.destroy(),r&&r.destroy(),ee(o),n}function Fn(t,e,n,r){let{c:o,dkLen:i,DK:c,PRF:s,PRFSalt:a}=Mo(t,e,n,r),f,u=new Uint8Array(4),d=ce(u),l=new Uint8Array(s.outputLen);for(let h=1,p=0;p<i;h++,p+=s.outputLen){let b=c.subarray(p,p+s.outputLen);d.setInt32(0,h,!1),(f=a._cloneInto(f)).update(u).digestInto(l),b.set(l.subarray(0,b.length));for(let x=1;x<o;x++){s._cloneInto(f).update(l).digestInto(l);for(let v=0;v<b.length;v++)b[v]^=l[v]}}return qo(s,a,c,f,l)}var rt={newline:10,reset:27};function zo(t){if(!Number.isSafeInteger(t))throw new Error(`integer expected: ${t}`)}function Vo(t){if(!Number.isSafeInteger(t)||t<1||t>40)throw new Error(`Invalid version=${t}. Expected number [1..40]`)}function Oe(t,e){return t.toString(2).padStart(e,"0")}function kn(t,e){let n=t%e;return n>=0?n:e+n}function de(t,e){return new Array(t).fill(e)}function mr(t){return t=t-(t>>>1&1431655765),t=(t&858993459)+(t>>>2&858993459),(t+(t>>>4)&252645135)*16843009>>>24}function Cn(t){let e=0,n=0;for(let i of t)e=Math.max(e,i.length),n+=i.length;let r=new Uint8Array(n),o=0;for(let i=0;i<e;i++)for(let c of t)i<c.length&&(r[o++]=c[i]);return r}function Zo(){let t,e=1/0;return{add(n,r){n>=e||(t=r,e=n)},get:()=>t,score:()=>e}}function Un(t){return Object.freeze({has:e=>t.includes(e),decode:e=>{if(!Array.isArray(e)||e.length&&typeof e[0]!="string")throw new Error("alphabet.decode input should be array of strings");return e.map(n=>{if(typeof n!="string")throw new Error(`alphabet.decode: not string element=${n}`);let r=t.indexOf(n);if(r===-1)throw new Error(`Unknown letter: "${n}". Allowed: ${t}`);return r})},encode:e=>{if(!Array.isArray(e)||e.length&&typeof e[0]!="number")throw new Error("alphabet.encode input should be an array of numbers");return e.map(n=>{if(zo(n),n<0||n>=t.length)throw new Error(`Digit index outside alphabet: ${n} (alphabet: ${t.length})`);return t[n]})}})}function Ln(t){if(t.length!==32)throw new Error("expects 32 element matrix");let e=[1431655765,858993459,252645135,16711935,65535];for(let n=0;n<5;n++){let r=e[n]>>>0,o=1<<n,i=o<<1;for(let c=0;c<32;c+=i)for(let s=0;s<o;s++){let a=c+s,f=a+o,u=t[a]>>>0,d=t[f]>>>0,l=(u>>>o^d)&r;t[a]=(u^l<<o)>>>0,t[f]=(d^l)>>>0}}}var nt=t=>1<<(t&31)>>>0,_e=(t,e)=>e===0?0:e===32?4294967295:(1<<e)-1<<t>>>0,ot=class t{constructor(e,n){w(this,"defined");w(this,"value");w(this,"tailMask");w(this,"words");w(this,"fullWords");w(this,"height");w(this,"width");let{height:r,width:o}=t.size(e);if(!Number.isSafeInteger(r)||r<=0)throw new Error(`Bitmap: invalid height=${r}, expected positive safe integer dimension`);if(!Number.isSafeInteger(o)||o<=0)throw new Error(`Bitmap: invalid width=${o}, expected positive safe integer dimension`);if(this.height=r,this.width=o,this.tailMask=_e(0,o&31||32),this.words=Math.ceil(o/32)|0,this.fullWords=Math.floor(o/32)|0,this.value=new Uint32Array(this.words*r),this.defined=new Uint32Array(this.value.length),n){if(n.length!==r)throw new Error(`Bitmap: data height mismatch: exp=${r} got=${n.length}`);for(let i=0;i<r;i++){let c=n[i];if(!c||c.length!==o)throw new Error(`Bitmap: data width mismatch at y=${i}: exp=${o} got=${c?.length}`);for(let s=0;s<o;s++)this.set(s,i,c[s])}}}static size(e,n){if(typeof e=="number"&&(e={height:e,width:e}),!Number.isSafeInteger(e.height)&&e.height!==1/0)throw new Error(`Bitmap: invalid height=${e.height} (${typeof e.height})`);if(!Number.isSafeInteger(e.width)&&e.width!==1/0)throw new Error(`Bitmap: invalid width=${e.width} (${typeof e.width})`);return n!==void 0&&(e={width:Math.min(e.width,n.width),height:Math.min(e.height,n.height)}),e}static fromString(e){e=e.replace(/^\n+/g,"").replace(/\n+$/g,"");let n=e.split(String.fromCharCode(rt.newline)),r=n.length,o,i=[];for(let c of n){let s=c.split("").map(a=>{if(a==="X")return!0;if(a===" ")return!1;if(a!=="?")throw new Error(`Bitmap.fromString: unknown symbol=${a}`)});if(o!==void 0&&s.length!==o)throw new Error(`Bitmap.fromString different row sizes: width=${o} cur=${s.length}`);o=s.length,i.push(s)}return o===void 0&&(o=0),new t({height:r,width:o},i)}point(e){return this.get(e.x,e.y)}isInside(e){return 0<=e.x&&e.x<this.width&&0<=e.y&&e.y<this.height}size(e){if(!e)return{height:this.height,width:this.width};let{x:n,y:r}=this.xy(e);return{height:this.height-r,width:this.width-n}}xy(e){if(typeof e=="number"&&(e={x:e,y:e}),!Number.isSafeInteger(e.x))throw new Error(`Bitmap: invalid x=${e.x}`);if(!Number.isSafeInteger(e.y))throw new Error(`Bitmap: invalid y=${e.y}`);return e.x=kn(e.x,this.width),e.y=kn(e.y,this.height),e}wordIndex(e,n){return n*this.words+(e>>>5)}bitIndex(e,n){return{word:this.wordIndex(e,n),bit:e&31}}isDefined(e,n){let r=this.wordIndex(e,n),o=nt(e);return(this.defined[r]&o)!==0}get(e,n){let r=this.wordIndex(e,n),o=nt(e);return(this.value[r]&o)!==0}maskWord(e,n,r){let{defined:o,value:i}=this;o[e]|=n,i[e]=i[e]&~n|-r&n}set(e,n,r){r!==void 0&&this.maskWord(this.wordIndex(e,n),nt(e),r)}fillRectConst(e,n,r,o,i){if(r<=0||o<=0||i===void 0)return;let{value:c,defined:s,words:a}=this,f=e>>>5,u=e+r-1>>>5,d=e&31,l=e+r-1&31;for(let h=0;h<o;h++){let p=(n+h)*a;if(f===u){let b=_e(d,l-d+1);this.maskWord(p+f,b,i);continue}this.maskWord(p+f,_e(d,32-d),i);for(let b=f+1;b<u;b++)s[p+b]=4294967295,c[p+b]=i?4294967295:0;this.maskWord(p+u,_e(0,l+1),i)}}rectWords(e,n,r,o,i){for(let c=0;c<o;c++){let s=n+c;for(let a=0;a<r;){let f=e+a,{bit:u,word:d}=this.bitIndex(f,s),l=Math.min(32-u,r-a);i(d,f,a,c,l),a+=l}}}rect(e,n,r){let{x:o,y:i}=this.xy(e),{height:c,width:s}=t.size(n,this.size({x:o,y:i}));if(typeof r!="function")return this.fillRectConst(o,i,s,c,r),this;let{defined:a,value:f}=this;return this.rectWords(o,i,s,c,(u,d,l,h,p)=>{let b=0,x=f[u];for(let v=0;v<p;v++){let O=nt(d+v),I=r({x:l+v,y:h},(x&O)!==0);I!==void 0&&(b|=O,x=x&~O|-I&O)}a[u]|=b,f[u]=x}),this}rectRead(e,n,r){let{x:o,y:i}=this.xy(e),{height:c,width:s}=t.size(n,this.size({x:o,y:i})),{value:a}=this;return this.rectWords(o,i,s,c,(f,u,d,l,h)=>{let p=a[f];for(let b=0;b<h;b++){let x=nt(u+b);r({x:d+b,y:l},(p&x)!==0)}}),this}hLine(e,n,r){return this.rect(e,{width:n,height:1},r)}vLine(e,n,r){return this.rect(e,{width:1,height:n},r)}border(e=2,n){if(!Number.isSafeInteger(e)||e<=0)throw new Error(`Bitmap.border: invalid size=${e}`);let r=this.height+2*e,o=this.width+2*e,i=new t({height:r,width:o});return i.rect(0,1/0,n),i.embed({x:e,y:e},this),i}embed(e,n){let{x:r,y:o}=this.xy(e),{height:i,width:c}=t.size(n.size(),this.size({x:r,y:o}));if(c<=0||i<=0)return this;let{value:s,defined:a}=this,{words:f,value:u}=n;for(let d=0;d<i;d++){let l=d*f;for(let h=0;h<c;){let p=r+h,{word:b,bit:x}=this.bitIndex(p,o+d),{word:v,bit:O}=n.bitIndex(h,d),I=Math.min(32-x,c-h),N=u[v],C=O&&v+1<l+f?u[v+1]:0,D=O?(N>>>O|C<<32-O)>>>0:N,V=_e(x,I),K=(D&_e(0,I))<<x>>>0;a[b]|=V,s[b]=s[b]&~V|K,h+=I}}return this}rectSlice(e,n=this.size()){let{x:r,y:o}=this.xy(e),{height:i,width:c}=t.size(n,this.size({x:r,y:o})),s=new t({height:i,width:c});return this.rectRead({x:r,y:o},{height:i,width:c},(a,f)=>{this.isDefined(r+a.x,o+a.y)&&s.set(a.x,a.y,f)}),s}transpose(){let{height:e,width:n,value:r,defined:o,words:i}=this,c=new t({height:n,width:e}),{words:s,value:a,defined:f,tailMask:u}=c,d=new Uint32Array(32),l=new Uint32Array(32);for(let h=0;h<e;h+=32)for(let p=0;p<i;p++){let b=Math.min(32,e-h);for(let x=0;x<b;x++){let v=this.wordIndex(32*p,h+x);d[x]=r[v],l[x]=o[v]}d.fill(0,b),l.fill(0,b),Ln(d),Ln(l);for(let x=0;x<32;x++){let v=p*32+x;if(v>=n)break;let O=c.wordIndex(h,v),I=h>>>5===s-1?u:4294967295;a[O]=d[x]&I,f[O]=l[x]&I}}return c}negate(){let e=this.defined.length;for(let n=0;n<e;n++)this.value[n]=~this.value[n],this.defined[n]=4294967295;return this}scale(e){if(!Number.isSafeInteger(e)||e>1024)throw new Error(`invalid scale factor: ${e}`);let{height:n,width:r}=this;return new t({height:e*n,width:e*r}).rect({x:0,y:0},1/0,({x:i,y:c})=>this.get(i/e|0,c/e|0))}clone(){let e=new t(this.size());return e.defined.set(this.defined),e.value.set(this.value),e}assertDrawn(){let{height:e,width:n,defined:r,tailMask:o,fullWords:i,words:c}=this;if(!(!e||!n))for(let s=0;s<e;s++){let a=s*c;for(let f=0;f<i;f++)if(r[a+f]!==4294967295)throw new Error("Invalid color type=undefined");if(c!==i&&(r[a+i]&o)!==o)throw new Error("Invalid color type=undefined")}}countPatternInRow(e,n,...r){if(!Number.isSafeInteger(n)||n<=0||n>=32)throw new Error("wrong patternLen");let o=(1<<n)-1,{height:i,width:c,value:s,words:a}=this;if(!Number.isSafeInteger(e)||e<0||e>=i)return 0;let f=0,u=this.wordIndex(0,e);for(let d=0,l=0;d<a;d++){let h=s[u+d],p=d===a-1&&c&31||32;for(let b=0;b<p;b++)if(l=(l<<1|h>>>b&1)&o,!(d*32+b+1<n)){for(let x of r)if(l===x){f++;break}}}return f}getRuns(e,n){let{height:r,width:o,value:i,words:c}=this;if(o===0||!Number.isSafeInteger(e)||e<0||e>=r)return;let s=0,a,f=this.wordIndex(0,e);for(let u=0;u<c;u++){let d=i[f+u],l=u===c-1&&o&31||32;for(let h=0;h<l;h++){let p=(d&1<<h)!==0;if(p===a){s++;continue}a!==void 0&&n(s,a),a=p,s=1}}a!==void 0&&n(s,a)}popcnt(){let{height:e,width:n,words:r,fullWords:o,tailMask:i}=this;if(!e||!n)return 0;let c=0;for(let s=0;s<e;s++){let a=s*r;for(let f=0;f<o;f++)c+=mr(this.value[a+f]);r!==o&&(c+=mr(this.value[a+o]&i))}return c}countBoxes2x2(e){let{height:n,width:r,words:o}=this;if(r<2||!Number.isSafeInteger(e)||e<0||e+1>=n)return 0;let i=this.wordIndex(0,e),c=this.wordIndex(0,e+1),a=(r&31)===0?2147483647:_e(0,r-1&31),f=0;for(let u=0;u<o;u++){let d=this.value[i+u],l=this.value[c+u],h=~(d^l)>>>0,p=u+1<o?this.value[i+u+1]>>>0:0,b=~(d^(d>>>1|(p&1)<<31)>>>0)>>>0,x=u+1<o?this.value[c+u+1]>>>0:0,v=~(l^(l>>>1|(x&1)<<31)>>>0)>>>0,O=(h&b&v)>>>0;u===o-1&&(O&=a),f+=mr(O)}return f}toString(){let e=String.fromCharCode(rt.newline),n="";for(let r=0;r<this.height;r++){let o="";for(let i=0;i<this.width;i++){let c=this.get(i,r);o+=this.isDefined(i,r)?c?"X":" ":"?"}n+=o+(r+1===this.height?"":e)}return n}toRaw(){let e=Array.from({length:this.height},()=>new Array(this.width));for(let n=0;n<this.height;n++){let r=e[n];for(let o=0;o<this.width;o++)r[o]=this.get(o,n)}return e}toASCII(){let{height:e,width:n}=this,r="";for(let o=0;o<e;o+=2){for(let i=0;i<n;i++){let c=this.get(i,o),s=o+1>=e?!0:this.get(i,o+1);!c&&!s?r+="\u2588":!c&&s?r+="\u2580":c&&!s?r+="\u2584":c&&s&&(r+=" ")}r+=String.fromCharCode(rt.newline)}return r}toTerm(){let e=String.fromCharCode(rt.reset),n=e+"[0m",r=e+"[1;47m  "+n,o=e+"[40m  "+n,i=String.fromCharCode(rt.newline),c="";for(let s=0;s<this.height;s++){for(let a=0;a<this.width;a++){let f=this.get(a,s);c+=f?o:r}c+=i}return c}toSVG(e=!0){let n=`<svg viewBox="0 0 ${this.width} ${this.height}" xmlns="http://www.w3.org/2000/svg">`,r="",o;return this.rectRead(0,1/0,(i,c)=>{if(!c)return;let{x:s,y:a}=i;if(!e){n+=`<rect x="${s}" y="${a}" width="1" height="1" />`;return}let f=`M${s} ${a}`;if(o){let d=`m${s-o.x} ${a-o.y}`;d.length<=f.length&&(f=d)}let u=s<10?`H${s}`:"h-1";r+=`${f}h1v1${u}Z`,o=i}),e&&(n+=`<path d="${r}"/>`),n+="</svg>",n}toGIF(){let e=s=>[s&255,s>>>8&255],n=[...e(this.width),...e(this.height)],r=[];this.rectRead(0,1/0,(s,a)=>r.push(+(a===!0)));let o=126,i=[71,73,70,56,55,97,...n,246,0,0,255,255,255,...de(381,0),44,0,0,0,0,...n,0,7],c=Math.floor(r.length/o);for(let s=0;s<c;s++)i.push(o+1,128,...r.slice(o*s,o*(s+1)).map(a=>+a));return i.push(r.length%o+1,128,...r.slice(c*o).map(s=>+s)),i.push(1,129,0,59),new Uint8Array(i)}toImage(e=!1){let{height:n,width:r}=this.size(),o=new Uint8Array(n*r*(e?3:4)),i=0;for(let c=0;c<n;c++)for(let s=0;s<r;s++){let a=this.get(s,c)?0:255;o[i++]=a,o[i++]=a,o[i++]=a,e||(o[i++]=255)}return{height:n,width:r,data:o}}},Hn=Object.freeze(["low","medium","quartile","high"]),Nn=Object.freeze(["numeric","alphanumeric","byte","kanji","eci"]),Go=[26,44,70,100,134,172,196,242,292,346,404,466,532,581,655,733,815,901,991,1085,1156,1258,1364,1474,1588,1706,1828,1921,2051,2185,2323,2465,2611,2761,2876,3034,3196,3362,3532,3706],Wo={low:[7,10,15,20,26,18,20,24,30,18,20,24,26,30,22,24,28,30,28,28,28,28,30,30,26,28,30,30,30,30,30,30,30,30,30,30,30,30,30,30],medium:[10,16,26,18,24,16,18,22,22,26,30,22,22,24,24,28,28,26,26,26,26,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28],quartile:[13,22,18,26,18,24,18,22,20,24,28,26,24,20,30,24,28,28,26,30,28,30,30,30,30,28,30,30,30,30,30,30,30,30,30,30,30,30,30,30],high:[17,28,22,16,22,28,26,26,24,28,24,28,22,24,24,30,28,28,26,28,30,24,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30]},Yo={low:[1,1,1,1,1,2,2,2,2,4,4,4,4,4,6,6,6,6,7,8,8,9,9,10,12,12,12,13,14,15,16,17,18,19,19,20,21,22,24,25],medium:[1,1,1,2,2,4,4,4,5,5,5,8,9,9,10,10,11,13,14,16,17,17,18,20,21,23,25,26,28,29,31,33,35,37,38,40,43,45,47,49],quartile:[1,1,2,2,4,4,6,6,8,8,8,10,12,16,12,17,16,18,21,20,23,23,25,27,29,34,34,35,38,40,43,45,48,51,53,56,59,62,65,68],high:[1,1,2,4,4,4,5,6,8,8,11,11,16,16,18,16,19,21,25,25,25,34,30,32,35,37,40,42,45,48,51,54,57,60,63,66,70,74,77,81]},Q=Object.freeze({size:Object.freeze({encode:t=>21+4*(t-1),decode:t=>(t-17)/4}),sizeType:t=>Math.floor((t+7)/17),alignmentPatterns(t){if(t===1)return[];let e=6,n=Q.size.encode(t)-e-1,r=n-e,o=Math.ceil(r/28),i=Math.floor(r/o);i%2?i+=1:r%o*2>=o&&(i+=2);let c=[e];for(let s=1;s<o;s++)c.push(n-(o-s)*i);return c.push(n),c},ECCode:Object.freeze({low:1,medium:0,quartile:3,high:2}),formatMask:21522,formatBits(t,e){let n=Q.ECCode[t]<<3|e,r=n;for(let o=0;o<10;o++)r=r<<1^(r>>9)*1335;return(n<<10|r)^Q.formatMask},versionBits(t){let e=t;for(let n=0;n<12;n++)e=e<<1^(e>>11)*7973;return t<<12|e},alphabet:Object.freeze({numeric:Un("0123456789"),alphanumerc:Un("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ $%*+-./:")}),lengthBits(t,e){return{numeric:[10,12,14],alphanumeric:[9,11,13],byte:[8,16,16],kanji:[8,10,12],eci:[0,0,0]}[e][Q.sizeType(t)]},modeBits:Object.freeze({numeric:"0001",alphanumeric:"0010",byte:"0100",kanji:"1000",eci:"0111"}),capacity(t,e){let n=Go[t-1],r=Wo[e][t-1],o=Yo[e][t-1],i=Math.floor(n/o)-r,c=o-n%o;return{words:r,numBlocks:o,shortBlocks:c,blockLen:i,capacity:(n-r*o)*8,total:(r+i)*o+o-c}}}),yr=Object.freeze([(t,e)=>(t+e)%2==0,(t,e)=>e%2==0,(t,e)=>t%3==0,(t,e)=>(t+e)%3==0,(t,e)=>(Math.floor(e/2)+Math.floor(t/3))%2==0,(t,e)=>t*e%2+t*e%3==0,(t,e)=>(t*e%2+t*e%3)%2==0,(t,e)=>((t+e)%2+t*e%3)%2==0]),E={tables:(t=>{let e=de(256,0),n=de(256,0);for(let r=0,o=1;r<256;r++)e[r]=o,n[o]=r,o<<=1,o&256&&(o^=t);return{exp:e,log:n}})(285),exp:t=>E.tables.exp[t],log(t){if(t===0)throw new Error(`GF.log: invalid arg=${t}`);return E.tables.log[t]%255},mul(t,e){return t===0||e===0?0:E.tables.exp[(E.tables.log[t]+E.tables.log[e])%255]},add:(t,e)=>t^e,pow:(t,e)=>E.tables.exp[E.tables.log[t]*e%255],inv(t){if(t===0)throw new Error(`GF.inverse: invalid arg=${t}`);return E.tables.exp[255-E.tables.log[t]]},polynomial(t){if(t.length==0)throw new Error("GF.polymomial: invalid length");if(t[0]!==0)return t;let e=0;for(;e<t.length-1&&t[e]==0;e++);return t.slice(e)},monomial(t,e){if(t<0)throw new Error(`GF.monomial: invalid degree=${t}`);if(e==0)return[0];let n=de(t+1,0);return n[0]=e,E.polynomial(n)},degree:t=>t.length-1,coefficient:(t,e)=>t[E.degree(t)-e],mulPoly(t,e){if(t[0]===0||e[0]===0)return[0];let n=de(t.length+e.length-1,0);for(let r=0;r<t.length;r++)for(let o=0;o<e.length;o++)n[r+o]=E.add(n[r+o],E.mul(t[r],e[o]));return E.polynomial(n)},mulPolyScalar(t,e){if(e==0)return[0];if(e==1)return t;let n=de(t.length,0);for(let r=0;r<t.length;r++)n[r]=E.mul(t[r],e);return E.polynomial(n)},mulPolyMonomial(t,e,n){if(e<0)throw new Error("GF.mulPolyMonomial: invalid degree");if(n==0)return[0];let r=de(t.length+e,0);for(let o=0;o<t.length;o++)r[o]=E.mul(t[o],n);return E.polynomial(r)},addPoly(t,e){if(t[0]===0)return e;if(e[0]===0)return t;let n=t,r=e;n.length>r.length&&([n,r]=[r,n]);let o=de(r.length,0),i=r.length-n.length,c=r.slice(0,i);for(let s=0;s<c.length;s++)o[s]=c[s];for(let s=i;s<r.length;s++)o[s]=E.add(n[s-i],r[s]);return E.polynomial(o)},remainderPoly(t,e){let n=Array.from(t);for(let r=0;r<t.length-e.length+1;r++){let o=n[r];if(o!==0)for(let i=1;i<e.length;i++)e[i]!==0&&(n[r+i]=E.add(n[r+i],E.mul(e[i],o)))}return n.slice(t.length-e.length+1,n.length)},divisorPoly(t){let e=[1];for(let n=0;n<t;n++)e=E.mulPoly(e,[1,E.pow(2,n)]);return e},evalPoly(t,e){if(e==0)return E.coefficient(t,0);let n=t[0];for(let r=1;r<t.length;r++)n=E.add(E.mul(e,n),t[r]);return n},euclidian(t,e,n){E.degree(t)<E.degree(e)&&([t,e]=[e,t]);let r=t,o=e,i=[0],c=[1];for(;2*E.degree(o)>=n;){let f=r,u=i;if(r=o,i=c,r[0]===0)throw new Error("rLast[0] === 0");o=f;let d=[0],l=E.inv(r[0]);for(;E.degree(o)>=E.degree(r)&&o[0]!==0;){let h=E.degree(o)-E.degree(r),p=E.mul(o[0],l);d=E.addPoly(d,E.monomial(h,p)),o=E.addPoly(o,E.mulPolyMonomial(r,h,p))}if(d=E.mulPoly(d,i),c=E.addPoly(d,u),E.degree(o)>=E.degree(r))throw new Error(`Division failed r: ${o}, rLast: ${r}`)}let s=E.coefficient(c,0);if(s==0)throw new Error("sigmaTilde(0) was zero");let a=E.inv(s);return[E.mulPolyScalar(c,a),E.mulPolyScalar(o,a)]}};function Xo(t){return{encode(e){let n=E.divisorPoly(t),r=Array.from(e);return r.push(...n.slice(0,-1).fill(0)),Uint8Array.from(E.remainderPoly(r,n))},decode(e){let n=e.slice(),r=E.polynomial(Array.from(e)),o=de(t,0),i=!1;for(let d=0;d<t;d++){let l=E.evalPoly(r,E.exp(d));o[o.length-1-d]=l,l!==0&&(i=!0)}if(!i)return n;o=E.polynomial(o);let c=E.monomial(t,1),[s,a]=E.euclidian(c,o,t),f=de(E.degree(s),0),u=0;for(let d=1;d<256&&u<f.length;d++)E.evalPoly(s,d)===0&&(f[u++]=E.inv(d));if(u!==f.length)throw new Error("RS.decode: invalid errors number");for(let d=0;d<f.length;d++){let l=n.length-1-E.log(f[d]);if(l<0)throw new Error("RS.decode: invalid error location");let h=E.inv(f[d]),p=1;for(let b=0;b<f.length;b++)d!==b&&(p=E.mul(p,E.add(1,E.mul(f[b],h))));n[l]=E.add(n[l],E.mul(E.evalPoly(a,h),E.inv(p)))}return n}}}function Qo(t,e){let{words:n,shortBlocks:r,numBlocks:o,blockLen:i,total:c}=Q.capacity(t,e),s=Xo(n);return{encode(a){let f=[],u=[];for(let p=0;p<o;p++){let b=p<r,x=i+(b?0:1);f.push(a.subarray(0,x)),u.push(s.encode(a.subarray(0,x))),a=a.subarray(x)}let d=Cn(f),l=Cn(u),h=new Uint8Array(d.length+l.length);return h.set(d),h.set(l,d.length),h},decode(a){if(a.length!==c)throw new Error(`interleave.decode: len(data)=${a.length}, total=${c}`);let f=[];for(let l=0;l<o;l++){let h=l<r;f.push(new Uint8Array(n+i+(h?0:1)))}let u=0;for(let l=0;l<i;l++)for(let h=0;h<o;h++)f[h][l]=a[u++];for(let l=r;l<o;l++)f[l][i]=a[u++];for(let l=i;l<i+n;l++)for(let h=0;h<o;h++){let p=h<r;f[h][l+(p?0:1)]=a[u++]}let d=[];for(let l of f)d.push(...Array.from(s.decode(l)).slice(0,-n));return Uint8Array.from(d)}}}function Jo(t,e,n,r=!1){let o=Q.size.encode(t),i=new ot(o+2),c=new ot(3).rect(0,3,!0).border(1,!1).border(1,!0).border(1,!1);i=i.embed(0,c).embed({x:-c.width,y:0},c).embed({x:0,y:-c.height},c),i=i.rectSlice(1,o);let s=new ot(1).rect(0,1,!0).border(1,!1).border(1,!0),a=Q.alignmentPatterns(t);for(let f of a)for(let u of a)i.isDefined(u,f)||i.embed({x:u-2,y:f-2},s);i=i.hLine({x:0,y:6},1/0,({x:f})=>i.isDefined(f,6)?void 0:f%2==0).vLine({x:6,y:0},1/0,({y:f})=>i.isDefined(6,f)?void 0:f%2==0);{let f=Q.formatBits(e,n),u=d=>!r&&(f>>d&1)==1;for(let d=0;d<6;d++)i.set(8,d,u(d));for(let d=6;d<8;d++)i.set(8,d+1,u(d));for(let d=8;d<15;d++)i.set(8,o-15+d,u(d));for(let d=0;d<8;d++)i.set(o-d-1,8,u(d));for(let d=8;d<9;d++)i.set(15-d-1+1,8,u(d));for(let d=9;d<15;d++)i.set(15-d-1,8,u(d));i.set(8,o-8,!r)}if(t>=7){let f=Q.versionBits(t);for(let u=0;u<18;u+=1){let d=!r&&(f>>u&1)==1,l=Math.floor(u/3),h=u%3+o-8-3;i.set(h,l,d),i.set(l,h,d)}}return i}function ei(t,e,n){let r=t,o=r.height,i=yr[e],c=-1,s=o-1;for(let a=o-1;a>0;a-=2){for(a==6&&(a=5);;s+=c){for(let f=0;f<2;f+=1){let u=a-f;r.isDefined(u,s)||n(u,s,i(u,s))}if(s+c<0||s+c>=o)break}c=-c}}function ti(t){let e="numeric";for(let n of t)if(!Q.alphabet.numeric.has(n)&&(e="alphanumeric",!Q.alphabet.alphanumerc.has(n)))return"byte";return e}function ri(t){if(typeof t!="string")throw new Error(`utf8ToBytes expected string, got ${typeof t}`);return new Uint8Array(new TextEncoder().encode(t))}function Dn(t,e,n,r,o=ri){let i="",c=n.length;if(r==="numeric"){let l=Q.alphabet.numeric.decode(n.split("")),h=l.length;for(let p=0;p<h-2;p+=3)i+=Oe(l[p]*100+l[p+1]*10+l[p+2],10);h%3===1?i+=Oe(l[h-1],4):h%3===2&&(i+=Oe(l[h-2]*10+l[h-1],7))}else if(r==="alphanumeric"){let l=Q.alphabet.alphanumerc.decode(n.split("")),h=l.length;for(let p=0;p<h-1;p+=2)i+=Oe(l[p]*45+l[p+1],11);h%2==1&&(i+=Oe(l[h-1],6))}else if(r==="byte"){let l=o(n);c=l.length,i=Array.from(l).map(h=>Oe(h,8)).join("")}else throw new Error("encode: unsupported type");let{capacity:s}=Q.capacity(t,e),a=Oe(c,Q.lengthBits(t,r)),f=Q.modeBits[r]+a+i;if(f.length>s)throw new Error("Capacity overflow");f+="0".repeat(Math.min(4,Math.max(0,s-f.length))),f.length%8&&(f+="0".repeat(8-f.length%8));let u="1110110000010001";for(let l=0;f.length!==s;l++)f+=u[l%u.length];let d=Uint8Array.from(f.match(/(.{8})/g).map(l=>+`0b${l}`));return Qo(t,e).encode(d)}function Kn(t,e,n,r,o=!1){let i=Jo(t,e,r,o),c=0,s=8*n.length;if(ei(i,r,(a,f,u)=>{let d=!1;c<s&&(d=(n[c>>>3]>>(7-c&7)&1)!==0,c++),i.set(a,f,d!==u)}),c!==s)throw new Error("QR: bytes left after draw");return i}var jn=t=>{let e=t.map(n=>n?"1":"0").join("");return{len:e.length,n:+`0b${e}`}},Pn=[!0,!1,!0,!0,!0,!1,!0],Mn=[!1,!1,!1,!1],It=jn([...Pn,...Mn]),$n=jn([...Mn,...Pn]);function ni(t){let e=t,{width:n,height:r}=e,o=e.transpose(),i=0;for(let l=0;l<r;l++)e.getRuns(l,h=>{h>=5&&(i+=3+(h-5))});for(let l=0;l<n;l++)o.getRuns(l,h=>{h>=5&&(i+=3+(h-5))});let c=0;for(let l=0;l<r-1;l++)c+=3*e.countBoxes2x2(l);let s=0;for(let l=0;l<r;l++)s+=40*e.countPatternInRow(l,It.len,It.n,$n.n);for(let l=0;l<n;l++)s+=40*o.countPatternInRow(l,It.len,It.n,$n.n);let a=r*n,f=e.popcnt(),d=10*Math.ceil(Math.max(0,Math.abs(f*100-a*50)-a*5)/(a*5));return i+c+s+d}function oi(t,e,n,r){if(r===void 0){let o=Zo();for(let i=0;i<yr.length;i++)o.add(ni(Kn(t,e,n,i,!0)),i);r=o.get()}if(r===void 0)throw new Error("Cannot find mask");return Kn(t,e,n,r)}function ii(t){if(!Hn.includes(t))throw new Error(`Invalid error correction mode=${t}. Expected: ${Hn}`)}function si(t){if(!Nn.includes(t))throw new Error(`Encoding: invalid mode=${t}. Expected: ${Nn}`);if(t==="kanji"||t==="eci")throw new Error(`Encoding: ${t} is not supported (yet?).`)}function ci(t){if(![0,1,2,3,4,5,6,7].includes(t)||!yr[t])throw new Error(`Invalid mask=${t}. Expected number [0..7]`)}function fi(t,e="raw",n={}){let r=n,o=r.ecc!==void 0?r.ecc:"medium";ii(o);let i=r.encoding!==void 0?r.encoding:ti(t);si(i),r.mask!==void 0&&ci(r.mask);let c=r.version,s,a=new Error("Unknown error");if(c!==void 0)Vo(c),s=Dn(c,o,t,i,r.textEncoder);else for(let d=1;d<=40;d++)try{s=Dn(d,o,t,i,r.textEncoder),c=d;break}catch(l){a=l}if(!c||!s)throw a;let f=oi(c,o,s,r.mask);f.assertDrawn();let u=r.border===void 0?2:r.border;if(!Number.isSafeInteger(u)||u<=0)throw new Error(`invalid border=${u}`);if(f=f.border(u,!1),r.scale!==void 0&&(f=f.scale(r.scale)),e==="raw")return f.toRaw();if(e==="ascii")return f.toASCII();if(e==="svg")return f.toSVG(r.optimize);if(e==="gif")return f.toGIF();if(e==="term")return f.toTerm();throw new Error(`Unknown output: ${e}`)}var qn=fi;var Fe=Object.freeze({private:76066276,public:76067358}),ai=Object.freeze({private:78791436,public:78792518}),Tt="m/84'/0'/0'",di="0123456789()[],'/*abcdefgh@:$%{}IJKLMNOPQRSTUVWXYZ&+-.;<=>?!^_|~ijklmnopqrstuvwxyzABCDEFGH`#\\ \"",li="qpzry9x8gf2tvdw0s3jn54khce6mua7l",ui=[0xf5dee51989n,0xa9fdca3312n,0x1bab10e32dn,0x3706b1677an,0x644d626ffdn],zn=new TextEncoder;function vr(t){return Array.from(t,e=>e.toString(16).padStart(2,"0")).join("")}function Vn(t){if(!/^[0-9a-f]*$/i.test(t)||t.length%2)throw new Error("Invalid hexadecimal input.");return Uint8Array.from(t.match(/../g)||[],e=>Number.parseInt(e,16))}function Er(t,e){return t.length===e.length&&t.every((n,r)=>n===e[r])}function Zn(t){return vt(Be(t))}function Ot(t,e=Fe){if(!t.publicKey||!t.chainCode)throw new Error("Public account node is incomplete.");return new pe({versions:e,depth:t.depth,index:t.index,parentFingerprint:t.parentFingerprint,chainCode:Uint8Array.from(t.chainCode),publicKey:Uint8Array.from(t.publicKey)})}function hi(t,e){return Ot(t,e).publicExtendedKey}function Ke(t,e=""){let n=t.normalize("NFKD"),r=("mnemonic"+e.normalize("NFKD")).normalize("NFKD"),o=zn.encode(n),i=zn.encode(r);try{return Fn(ze,o,i,{c:2048,dkLen:64})}finally{o.fill(0),i.fill(0)}}function pi(t){let e=1n;for(let n of t){let r=e>>35n;e=(e&0x7ffffffffn)<<5n^BigInt(n);for(let o=0;o<5;o+=1)r>>BigInt(o)&1n&&(e^=ui[o])}return e}function Sr(t){let e=[],n=0,r=0;for(let c of t){let s=di.indexOf(c);if(s===-1)throw new Error(`Unsupported descriptor character: ${c}`);e.push(s&31),n=n*3+(s>>5),r+=1,r===3&&(e.push(n),n=0,r=0)}r>0&&e.push(n),e.push(0,0,0,0,0,0,0,0);let o=pi(e)^1n,i="";for(let c=0;c<8;c+=1)i+=li[Number(o>>BigInt(5*(7-c))&31n)];return i}function Br(t){return`${t}#${Sr(t)}`}function Gn(t){let e=Zn(t);return br.encode("bc",[0,...br.toWords(e)],90)}function it(t,e,n){if(e!==0&&e!==1)throw new Error("Only receive (0) and change (1) branches are supported.");if(!Number.isSafeInteger(n)||n<0||n>=2147483648)throw new Error("Address index is out of range.");let r=t.deriveChild(e).deriveChild(n);if(!r.publicKey)throw new Error("Derived public key is unavailable.");return Gn(r.publicKey)}function Wn(t){let e=pe.fromExtendedKey(t,Fe);if(e.privateKey)throw new Error("Private extended keys are not accepted.");return e}function Yn(t,e=""){let n,r,o;try{if(n=Ke(t,e),r=pe.fromMasterSeed(n,Fe),!r.publicKey)throw new Error("Master public key derivation failed.");let i=vr(Zn(r.publicKey).slice(0,4));o=r.derive(Tt);let c=Ot(o,Fe),s=c.publicExtendedKey,a=hi(c,ai),f=`[${i}/84h/0h/0h]${s}`,u=Br(`wpkh(${f}/0/*)`),d=Br(`wpkh(${f}/1/*)`),l=it(c,0,0);return{accountPublic:c,masterFingerprint:i,accountXpub:s,accountZpub:a,receiveDescriptor:u,changeDescriptor:d,firstReceiveAddress:l}}finally{n&&n.fill(0),o&&o.wipePrivateData(),r&&r.wipePrivateData()}}function bi(t){return{format:"offline-bip39-watch-only-v1",network:"bitcoin-mainnet",wallet_type:"single-sig",script_type:"p2wpkh",standard:"BIP84",account:0,master_fingerprint:t.masterFingerprint,account_path:Tt,account_xpub:t.accountXpub,account_zpub:t.accountZpub,receive_descriptor:t.receiveDescriptor,change_descriptor:t.changeDescriptor,first_receive_path:`${Tt}/0/0`,first_receive_address:t.firstReceiveAddress}}function wi(t,e,n={}){let r=qn(e,"raw",{ecc:n.ecc||"medium",encoding:"byte",border:4}),o=Math.max(2,Math.floor((n.maxSize||300)/r.length)),i=r.length*o;t.width=i,t.height=i;let c=t.getContext("2d",{alpha:!1});if(!c)throw new Error("Canvas rendering is unavailable.");c.fillStyle="#ffffff",c.fillRect(0,0,i,i),c.fillStyle="#111111",r.forEach((s,a)=>s.forEach((f,u)=>{f&&c.fillRect(u*o,a*o,o,o)}))}function gi(t){let e=t.getContext("2d");e&&e.clearRect(0,0,t.width,t.height),t.width=0,t.height=0}function xi(){let t=[],e=(a,f)=>{if(t.push({name:a,passed:!!f}),!f)throw new Error(`Wallet cryptographic self-test failed: ${a}`)},n="abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about",r,o,i,c,s;try{r=Ke(n,""),e("BIP39 empty passphrase",vr(r)==="5eb00bbddcf069084889a8ab9155568165f5c453ccb85e70811aaed6f6da5fc19a5ac40b389cd370d086206dec8aa6c43daea6690f20ad3d8d48b2d2ce9e38e4"),o=Ke(n,"TREZOR"),e("BIP39 nonempty passphrase",vr(o)==="c55257c360c07c72029aebc1b53c05ed0362ada38ead3e3e9efa3708e53495531f09a6987599d18264c1e1c92f2cf141630c7a3c4ab7c81b2f001698e7463b04");let a=Ke(n,"caf\xE9"),f=Ke(n.normalize("NFKD"),"cafe\u0301");e("BIP39 Unicode NFKD",Er(a,f)),a.fill(0),f.fill(0),i=pe.fromMasterSeed(Vn("000102030405060708090a0b0c0d0e0f"),Fe),e("BIP32 master vector",i.publicExtendedKey==="xpub661MyMwAqRbcFtXgS5sYJABqqG9YLmC4Q1Rdap9gSE8NqtwybGhePY2gZ29ESFjqJoCu1Rupje8YtGqsefD265TMg7usUDFdp6W1EGMcet8"),c=pe.fromMasterSeed(Vn("fffcf9f6f3f0edeae7e4e1dedbd8d5d2cfccc9c6c3c0bdbab7b4b1aeaba8a5a29f9c999693908d8a8784817e7b7875726f6c696663605d5a5754514e4b484542"),Fe),e("BIP32 second master vector",c.publicExtendedKey==="xpub661MyMwAqRbcFW31YEwpkMuc5THy2PSt5bDMsktWQcFF8syAmRUapSCGu8ED9W6oDMSgv6Zz8idoc4a6mr8BDzTJY47LJhkJ8UB7WEGuduB");let u=i.derive("m/0'");e("BIP32 hardened child",u.depth===1&&u.index===2147483648);let d=u.deriveChild(1),l=Ot(u).deriveChild(1);e("BIP32 public child",Er(d.publicKey,l.publicKey));let h=pe.fromExtendedKey(l.publicExtendedKey,Fe);e("BIP32 XPUB parse",Er(h.publicKey,l.publicKey));let p=!1;try{Ot(i).deriveChild(2147483648)}catch{p=!0}e("BIP32 hardened XPUB rejection",p);let b=Yn(n,"");return s=b.accountPublic,e("BIP84 account ZPUB",b.accountZpub==="zpub6rFR7y4Q2AijBEqTUquhVz398htDFrtymD9xYYfG1m4wAcvPhXNfE3EfH1r1ADqtfSdVCToUG868RvUUkgDKf31mGDtKsAYz2oz2AGutZYs"),e("BIP84 receive 0",b.firstReceiveAddress==="bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu"),e("BIP84 receive 1",it(s,0,1)==="bc1qnjg0jd8228aq7egyzacy8cys3knf9xvrerkf9g"),e("BIP84 change 0",it(s,1,0)==="bc1q8c6fshw2dlwun7ekn9qwf37cu2rn755upcp6el"),e("BIP380 checksum",Sr("raw(deadbeef)")==="89f8spxm"),e("Descriptor receive branch",b.receiveDescriptor.includes("]"+b.accountXpub+"/0/*)#")),e("Descriptor change branch",b.changeDescriptor.includes("]"+b.accountXpub+"/1/*)#")),e("Descriptor address parity",it(Wn(b.accountXpub),0,0)===b.firstReceiveAddress),{passed:!0,checks:t}}finally{r&&r.fill(0),o&&o.fill(0),s&&s.wipePrivateData(),i&&i.wipePrivateData(),c&&c.wipePrivateData()}}var mi=Object.freeze({ACCOUNT_PATH:Tt});return no(yi);})();
+/* WALLET_CRYPTO_BUNDLE_END */
+  </script>
+
+  <script>
+  "use strict";
+
+  // Snapshot of bip-0039/english.txt from the Bitcoin BIPs repository.
+  // The self-test hashes the newline-joined list and fails closed if it changes.
+  const WORDLIST = `abandon
+ability
+able
+about
+above
+absent
+absorb
+abstract
+absurd
+abuse
+access
+accident
+account
+accuse
+achieve
+acid
+acoustic
+acquire
+across
+act
+action
+actor
+actress
+actual
+adapt
+add
+addict
+address
+adjust
+admit
+adult
+advance
+advice
+aerobic
+affair
+afford
+afraid
+again
+age
+agent
+agree
+ahead
+aim
+air
+airport
+aisle
+alarm
+album
+alcohol
+alert
+alien
+all
+alley
+allow
+almost
+alone
+alpha
+already
+also
+alter
+always
+amateur
+amazing
+among
+amount
+amused
+analyst
+anchor
+ancient
+anger
+angle
+angry
+animal
+ankle
+announce
+annual
+another
+answer
+antenna
+antique
+anxiety
+any
+apart
+apology
+appear
+apple
+approve
+april
+arch
+arctic
+area
+arena
+argue
+arm
+armed
+armor
+army
+around
+arrange
+arrest
+arrive
+arrow
+art
+artefact
+artist
+artwork
+ask
+aspect
+assault
+asset
+assist
+assume
+asthma
+athlete
+atom
+attack
+attend
+attitude
+attract
+auction
+audit
+august
+aunt
+author
+auto
+autumn
+average
+avocado
+avoid
+awake
+aware
+away
+awesome
+awful
+awkward
+axis
+baby
+bachelor
+bacon
+badge
+bag
+balance
+balcony
+ball
+bamboo
+banana
+banner
+bar
+barely
+bargain
+barrel
+base
+basic
+basket
+battle
+beach
+bean
+beauty
+because
+become
+beef
+before
+begin
+behave
+behind
+believe
+below
+belt
+bench
+benefit
+best
+betray
+better
+between
+beyond
+bicycle
+bid
+bike
+bind
+biology
+bird
+birth
+bitter
+black
+blade
+blame
+blanket
+blast
+bleak
+bless
+blind
+blood
+blossom
+blouse
+blue
+blur
+blush
+board
+boat
+body
+boil
+bomb
+bone
+bonus
+book
+boost
+border
+boring
+borrow
+boss
+bottom
+bounce
+box
+boy
+bracket
+brain
+brand
+brass
+brave
+bread
+breeze
+brick
+bridge
+brief
+bright
+bring
+brisk
+broccoli
+broken
+bronze
+broom
+brother
+brown
+brush
+bubble
+buddy
+budget
+buffalo
+build
+bulb
+bulk
+bullet
+bundle
+bunker
+burden
+burger
+burst
+bus
+business
+busy
+butter
+buyer
+buzz
+cabbage
+cabin
+cable
+cactus
+cage
+cake
+call
+calm
+camera
+camp
+can
+canal
+cancel
+candy
+cannon
+canoe
+canvas
+canyon
+capable
+capital
+captain
+car
+carbon
+card
+cargo
+carpet
+carry
+cart
+case
+cash
+casino
+castle
+casual
+cat
+catalog
+catch
+category
+cattle
+caught
+cause
+caution
+cave
+ceiling
+celery
+cement
+census
+century
+cereal
+certain
+chair
+chalk
+champion
+change
+chaos
+chapter
+charge
+chase
+chat
+cheap
+check
+cheese
+chef
+cherry
+chest
+chicken
+chief
+child
+chimney
+choice
+choose
+chronic
+chuckle
+chunk
+churn
+cigar
+cinnamon
+circle
+citizen
+city
+civil
+claim
+clap
+clarify
+claw
+clay
+clean
+clerk
+clever
+click
+client
+cliff
+climb
+clinic
+clip
+clock
+clog
+close
+cloth
+cloud
+clown
+club
+clump
+cluster
+clutch
+coach
+coast
+coconut
+code
+coffee
+coil
+coin
+collect
+color
+column
+combine
+come
+comfort
+comic
+common
+company
+concert
+conduct
+confirm
+congress
+connect
+consider
+control
+convince
+cook
+cool
+copper
+copy
+coral
+core
+corn
+correct
+cost
+cotton
+couch
+country
+couple
+course
+cousin
+cover
+coyote
+crack
+cradle
+craft
+cram
+crane
+crash
+crater
+crawl
+crazy
+cream
+credit
+creek
+crew
+cricket
+crime
+crisp
+critic
+crop
+cross
+crouch
+crowd
+crucial
+cruel
+cruise
+crumble
+crunch
+crush
+cry
+crystal
+cube
+culture
+cup
+cupboard
+curious
+current
+curtain
+curve
+cushion
+custom
+cute
+cycle
+dad
+damage
+damp
+dance
+danger
+daring
+dash
+daughter
+dawn
+day
+deal
+debate
+debris
+decade
+december
+decide
+decline
+decorate
+decrease
+deer
+defense
+define
+defy
+degree
+delay
+deliver
+demand
+demise
+denial
+dentist
+deny
+depart
+depend
+deposit
+depth
+deputy
+derive
+describe
+desert
+design
+desk
+despair
+destroy
+detail
+detect
+develop
+device
+devote
+diagram
+dial
+diamond
+diary
+dice
+diesel
+diet
+differ
+digital
+dignity
+dilemma
+dinner
+dinosaur
+direct
+dirt
+disagree
+discover
+disease
+dish
+dismiss
+disorder
+display
+distance
+divert
+divide
+divorce
+dizzy
+doctor
+document
+dog
+doll
+dolphin
+domain
+donate
+donkey
+donor
+door
+dose
+double
+dove
+draft
+dragon
+drama
+drastic
+draw
+dream
+dress
+drift
+drill
+drink
+drip
+drive
+drop
+drum
+dry
+duck
+dumb
+dune
+during
+dust
+dutch
+duty
+dwarf
+dynamic
+eager
+eagle
+early
+earn
+earth
+easily
+east
+easy
+echo
+ecology
+economy
+edge
+edit
+educate
+effort
+egg
+eight
+either
+elbow
+elder
+electric
+elegant
+element
+elephant
+elevator
+elite
+else
+embark
+embody
+embrace
+emerge
+emotion
+employ
+empower
+empty
+enable
+enact
+end
+endless
+endorse
+enemy
+energy
+enforce
+engage
+engine
+enhance
+enjoy
+enlist
+enough
+enrich
+enroll
+ensure
+enter
+entire
+entry
+envelope
+episode
+equal
+equip
+era
+erase
+erode
+erosion
+error
+erupt
+escape
+essay
+essence
+estate
+eternal
+ethics
+evidence
+evil
+evoke
+evolve
+exact
+example
+excess
+exchange
+excite
+exclude
+excuse
+execute
+exercise
+exhaust
+exhibit
+exile
+exist
+exit
+exotic
+expand
+expect
+expire
+explain
+expose
+express
+extend
+extra
+eye
+eyebrow
+fabric
+face
+faculty
+fade
+faint
+faith
+fall
+false
+fame
+family
+famous
+fan
+fancy
+fantasy
+farm
+fashion
+fat
+fatal
+father
+fatigue
+fault
+favorite
+feature
+february
+federal
+fee
+feed
+feel
+female
+fence
+festival
+fetch
+fever
+few
+fiber
+fiction
+field
+figure
+file
+film
+filter
+final
+find
+fine
+finger
+finish
+fire
+firm
+first
+fiscal
+fish
+fit
+fitness
+fix
+flag
+flame
+flash
+flat
+flavor
+flee
+flight
+flip
+float
+flock
+floor
+flower
+fluid
+flush
+fly
+foam
+focus
+fog
+foil
+fold
+follow
+food
+foot
+force
+forest
+forget
+fork
+fortune
+forum
+forward
+fossil
+foster
+found
+fox
+fragile
+frame
+frequent
+fresh
+friend
+fringe
+frog
+front
+frost
+frown
+frozen
+fruit
+fuel
+fun
+funny
+furnace
+fury
+future
+gadget
+gain
+galaxy
+gallery
+game
+gap
+garage
+garbage
+garden
+garlic
+garment
+gas
+gasp
+gate
+gather
+gauge
+gaze
+general
+genius
+genre
+gentle
+genuine
+gesture
+ghost
+giant
+gift
+giggle
+ginger
+giraffe
+girl
+give
+glad
+glance
+glare
+glass
+glide
+glimpse
+globe
+gloom
+glory
+glove
+glow
+glue
+goat
+goddess
+gold
+good
+goose
+gorilla
+gospel
+gossip
+govern
+gown
+grab
+grace
+grain
+grant
+grape
+grass
+gravity
+great
+green
+grid
+grief
+grit
+grocery
+group
+grow
+grunt
+guard
+guess
+guide
+guilt
+guitar
+gun
+gym
+habit
+hair
+half
+hammer
+hamster
+hand
+happy
+harbor
+hard
+harsh
+harvest
+hat
+have
+hawk
+hazard
+head
+health
+heart
+heavy
+hedgehog
+height
+hello
+helmet
+help
+hen
+hero
+hidden
+high
+hill
+hint
+hip
+hire
+history
+hobby
+hockey
+hold
+hole
+holiday
+hollow
+home
+honey
+hood
+hope
+horn
+horror
+horse
+hospital
+host
+hotel
+hour
+hover
+hub
+huge
+human
+humble
+humor
+hundred
+hungry
+hunt
+hurdle
+hurry
+hurt
+husband
+hybrid
+ice
+icon
+idea
+identify
+idle
+ignore
+ill
+illegal
+illness
+image
+imitate
+immense
+immune
+impact
+impose
+improve
+impulse
+inch
+include
+income
+increase
+index
+indicate
+indoor
+industry
+infant
+inflict
+inform
+inhale
+inherit
+initial
+inject
+injury
+inmate
+inner
+innocent
+input
+inquiry
+insane
+insect
+inside
+inspire
+install
+intact
+interest
+into
+invest
+invite
+involve
+iron
+island
+isolate
+issue
+item
+ivory
+jacket
+jaguar
+jar
+jazz
+jealous
+jeans
+jelly
+jewel
+job
+join
+joke
+journey
+joy
+judge
+juice
+jump
+jungle
+junior
+junk
+just
+kangaroo
+keen
+keep
+ketchup
+key
+kick
+kid
+kidney
+kind
+kingdom
+kiss
+kit
+kitchen
+kite
+kitten
+kiwi
+knee
+knife
+knock
+know
+lab
+label
+labor
+ladder
+lady
+lake
+lamp
+language
+laptop
+large
+later
+latin
+laugh
+laundry
+lava
+law
+lawn
+lawsuit
+layer
+lazy
+leader
+leaf
+learn
+leave
+lecture
+left
+leg
+legal
+legend
+leisure
+lemon
+lend
+length
+lens
+leopard
+lesson
+letter
+level
+liar
+liberty
+library
+license
+life
+lift
+light
+like
+limb
+limit
+link
+lion
+liquid
+list
+little
+live
+lizard
+load
+loan
+lobster
+local
+lock
+logic
+lonely
+long
+loop
+lottery
+loud
+lounge
+love
+loyal
+lucky
+luggage
+lumber
+lunar
+lunch
+luxury
+lyrics
+machine
+mad
+magic
+magnet
+maid
+mail
+main
+major
+make
+mammal
+man
+manage
+mandate
+mango
+mansion
+manual
+maple
+marble
+march
+margin
+marine
+market
+marriage
+mask
+mass
+master
+match
+material
+math
+matrix
+matter
+maximum
+maze
+meadow
+mean
+measure
+meat
+mechanic
+medal
+media
+melody
+melt
+member
+memory
+mention
+menu
+mercy
+merge
+merit
+merry
+mesh
+message
+metal
+method
+middle
+midnight
+milk
+million
+mimic
+mind
+minimum
+minor
+minute
+miracle
+mirror
+misery
+miss
+mistake
+mix
+mixed
+mixture
+mobile
+model
+modify
+mom
+moment
+monitor
+monkey
+monster
+month
+moon
+moral
+more
+morning
+mosquito
+mother
+motion
+motor
+mountain
+mouse
+move
+movie
+much
+muffin
+mule
+multiply
+muscle
+museum
+mushroom
+music
+must
+mutual
+myself
+mystery
+myth
+naive
+name
+napkin
+narrow
+nasty
+nation
+nature
+near
+neck
+need
+negative
+neglect
+neither
+nephew
+nerve
+nest
+net
+network
+neutral
+never
+news
+next
+nice
+night
+noble
+noise
+nominee
+noodle
+normal
+north
+nose
+notable
+note
+nothing
+notice
+novel
+now
+nuclear
+number
+nurse
+nut
+oak
+obey
+object
+oblige
+obscure
+observe
+obtain
+obvious
+occur
+ocean
+october
+odor
+off
+offer
+office
+often
+oil
+okay
+old
+olive
+olympic
+omit
+once
+one
+onion
+online
+only
+open
+opera
+opinion
+oppose
+option
+orange
+orbit
+orchard
+order
+ordinary
+organ
+orient
+original
+orphan
+ostrich
+other
+outdoor
+outer
+output
+outside
+oval
+oven
+over
+own
+owner
+oxygen
+oyster
+ozone
+pact
+paddle
+page
+pair
+palace
+palm
+panda
+panel
+panic
+panther
+paper
+parade
+parent
+park
+parrot
+party
+pass
+patch
+path
+patient
+patrol
+pattern
+pause
+pave
+payment
+peace
+peanut
+pear
+peasant
+pelican
+pen
+penalty
+pencil
+people
+pepper
+perfect
+permit
+person
+pet
+phone
+photo
+phrase
+physical
+piano
+picnic
+picture
+piece
+pig
+pigeon
+pill
+pilot
+pink
+pioneer
+pipe
+pistol
+pitch
+pizza
+place
+planet
+plastic
+plate
+play
+please
+pledge
+pluck
+plug
+plunge
+poem
+poet
+point
+polar
+pole
+police
+pond
+pony
+pool
+popular
+portion
+position
+possible
+post
+potato
+pottery
+poverty
+powder
+power
+practice
+praise
+predict
+prefer
+prepare
+present
+pretty
+prevent
+price
+pride
+primary
+print
+priority
+prison
+private
+prize
+problem
+process
+produce
+profit
+program
+project
+promote
+proof
+property
+prosper
+protect
+proud
+provide
+public
+pudding
+pull
+pulp
+pulse
+pumpkin
+punch
+pupil
+puppy
+purchase
+purity
+purpose
+purse
+push
+put
+puzzle
+pyramid
+quality
+quantum
+quarter
+question
+quick
+quit
+quiz
+quote
+rabbit
+raccoon
+race
+rack
+radar
+radio
+rail
+rain
+raise
+rally
+ramp
+ranch
+random
+range
+rapid
+rare
+rate
+rather
+raven
+raw
+razor
+ready
+real
+reason
+rebel
+rebuild
+recall
+receive
+recipe
+record
+recycle
+reduce
+reflect
+reform
+refuse
+region
+regret
+regular
+reject
+relax
+release
+relief
+rely
+remain
+remember
+remind
+remove
+render
+renew
+rent
+reopen
+repair
+repeat
+replace
+report
+require
+rescue
+resemble
+resist
+resource
+response
+result
+retire
+retreat
+return
+reunion
+reveal
+review
+reward
+rhythm
+rib
+ribbon
+rice
+rich
+ride
+ridge
+rifle
+right
+rigid
+ring
+riot
+ripple
+risk
+ritual
+rival
+river
+road
+roast
+robot
+robust
+rocket
+romance
+roof
+rookie
+room
+rose
+rotate
+rough
+round
+route
+royal
+rubber
+rude
+rug
+rule
+run
+runway
+rural
+sad
+saddle
+sadness
+safe
+sail
+salad
+salmon
+salon
+salt
+salute
+same
+sample
+sand
+satisfy
+satoshi
+sauce
+sausage
+save
+say
+scale
+scan
+scare
+scatter
+scene
+scheme
+school
+science
+scissors
+scorpion
+scout
+scrap
+screen
+script
+scrub
+sea
+search
+season
+seat
+second
+secret
+section
+security
+seed
+seek
+segment
+select
+sell
+seminar
+senior
+sense
+sentence
+series
+service
+session
+settle
+setup
+seven
+shadow
+shaft
+shallow
+share
+shed
+shell
+sheriff
+shield
+shift
+shine
+ship
+shiver
+shock
+shoe
+shoot
+shop
+short
+shoulder
+shove
+shrimp
+shrug
+shuffle
+shy
+sibling
+sick
+side
+siege
+sight
+sign
+silent
+silk
+silly
+silver
+similar
+simple
+since
+sing
+siren
+sister
+situate
+six
+size
+skate
+sketch
+ski
+skill
+skin
+skirt
+skull
+slab
+slam
+sleep
+slender
+slice
+slide
+slight
+slim
+slogan
+slot
+slow
+slush
+small
+smart
+smile
+smoke
+smooth
+snack
+snake
+snap
+sniff
+snow
+soap
+soccer
+social
+sock
+soda
+soft
+solar
+soldier
+solid
+solution
+solve
+someone
+song
+soon
+sorry
+sort
+soul
+sound
+soup
+source
+south
+space
+spare
+spatial
+spawn
+speak
+special
+speed
+spell
+spend
+sphere
+spice
+spider
+spike
+spin
+spirit
+split
+spoil
+sponsor
+spoon
+sport
+spot
+spray
+spread
+spring
+spy
+square
+squeeze
+squirrel
+stable
+stadium
+staff
+stage
+stairs
+stamp
+stand
+start
+state
+stay
+steak
+steel
+stem
+step
+stereo
+stick
+still
+sting
+stock
+stomach
+stone
+stool
+story
+stove
+strategy
+street
+strike
+strong
+struggle
+student
+stuff
+stumble
+style
+subject
+submit
+subway
+success
+such
+sudden
+suffer
+sugar
+suggest
+suit
+summer
+sun
+sunny
+sunset
+super
+supply
+supreme
+sure
+surface
+surge
+surprise
+surround
+survey
+suspect
+sustain
+swallow
+swamp
+swap
+swarm
+swear
+sweet
+swift
+swim
+swing
+switch
+sword
+symbol
+symptom
+syrup
+system
+table
+tackle
+tag
+tail
+talent
+talk
+tank
+tape
+target
+task
+taste
+tattoo
+taxi
+teach
+team
+tell
+ten
+tenant
+tennis
+tent
+term
+test
+text
+thank
+that
+theme
+then
+theory
+there
+they
+thing
+this
+thought
+three
+thrive
+throw
+thumb
+thunder
+ticket
+tide
+tiger
+tilt
+timber
+time
+tiny
+tip
+tired
+tissue
+title
+toast
+tobacco
+today
+toddler
+toe
+together
+toilet
+token
+tomato
+tomorrow
+tone
+tongue
+tonight
+tool
+tooth
+top
+topic
+topple
+torch
+tornado
+tortoise
+toss
+total
+tourist
+toward
+tower
+town
+toy
+track
+trade
+traffic
+tragic
+train
+transfer
+trap
+trash
+travel
+tray
+treat
+tree
+trend
+trial
+tribe
+trick
+trigger
+trim
+trip
+trophy
+trouble
+truck
+true
+truly
+trumpet
+trust
+truth
+try
+tube
+tuition
+tumble
+tuna
+tunnel
+turkey
+turn
+turtle
+twelve
+twenty
+twice
+twin
+twist
+two
+type
+typical
+ugly
+umbrella
+unable
+unaware
+uncle
+uncover
+under
+undo
+unfair
+unfold
+unhappy
+uniform
+unique
+unit
+universe
+unknown
+unlock
+until
+unusual
+unveil
+update
+upgrade
+uphold
+upon
+upper
+upset
+urban
+urge
+usage
+use
+used
+useful
+useless
+usual
+utility
+vacant
+vacuum
+vague
+valid
+valley
+valve
+van
+vanish
+vapor
+various
+vast
+vault
+vehicle
+velvet
+vendor
+venture
+venue
+verb
+verify
+version
+very
+vessel
+veteran
+viable
+vibrant
+vicious
+victory
+video
+view
+village
+vintage
+violin
+virtual
+virus
+visa
+visit
+visual
+vital
+vivid
+vocal
+voice
+void
+volcano
+volume
+vote
+voyage
+wage
+wagon
+wait
+walk
+wall
+walnut
+want
+warfare
+warm
+warrior
+wash
+wasp
+waste
+water
+wave
+way
+wealth
+weapon
+wear
+weasel
+weather
+web
+wedding
+weekend
+weird
+welcome
+west
+wet
+whale
+what
+wheat
+wheel
+when
+where
+whip
+whisper
+wide
+width
+wife
+wild
+will
+win
+window
+wine
+wing
+wink
+winner
+winter
+wire
+wisdom
+wise
+wish
+witness
+wolf
+woman
+wonder
+wood
+wool
+word
+work
+world
+worry
+worth
+wrap
+wreck
+wrestle
+wrist
+write
+wrong
+yard
+year
+yellow
+you
+young
+youth
+zebra
+zero
+zone
+zoo`.split("\n");
+  const WORDLIST_SHA256 = "187db04a869dd9bc7be80d21a86497d692c0db6abd3aa8cb6be5d618ff757fae";
+  const ZERO_VECTOR_PHRASE = Array(23).fill("abandon").concat("art").join(" ");
+
+  const SHA256_K = new Uint32Array([
+    0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,
+    0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,
+    0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,
+    0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,
+    0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,
+    0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,
+    0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,
+    0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2
+  ]);
+
+  const $ = (id) => document.getElementById(id);
+  const encoder = new TextEncoder();
+  let currentPhrase = "";
+  let revealTimeout = null;
+  let countdownInterval = null;
+  let testsPassed = false;
+  let publicWallet = null;
+  let addressCount = 0;
+
+  function rotr(value, bits) { return (value >>> bits) | (value << (32 - bits)); }
+
+  // Independent, dependency-free SHA-256 implementation used to cross-check Web Crypto.
+  function sha256JavaScript(input) {
+    const source = input instanceof Uint8Array ? input : new Uint8Array(input);
+    const bitLength = source.length * 8;
+    const paddedLength = Math.ceil((source.length + 9) / 64) * 64;
+    const bytes = new Uint8Array(paddedLength);
+    bytes.set(source);
+    bytes[source.length] = 0x80;
+    const view = new DataView(bytes.buffer);
+    view.setUint32(paddedLength - 8, Math.floor(bitLength / 0x100000000), false);
+    view.setUint32(paddedLength - 4, bitLength >>> 0, false);
+
+    let h0=0x6a09e667,h1=0xbb67ae85,h2=0x3c6ef372,h3=0xa54ff53a;
+    let h4=0x510e527f,h5=0x9b05688c,h6=0x1f83d9ab,h7=0x5be0cd19;
+    const w = new Uint32Array(64);
+
+    for (let offset = 0; offset < bytes.length; offset += 64) {
+      for (let i = 0; i < 16; i++) w[i] = view.getUint32(offset + i * 4, false);
+      for (let i = 16; i < 64; i++) {
+        const s0 = rotr(w[i-15],7) ^ rotr(w[i-15],18) ^ (w[i-15] >>> 3);
+        const s1 = rotr(w[i-2],17) ^ rotr(w[i-2],19) ^ (w[i-2] >>> 10);
+        w[i] = (w[i-16] + s0 + w[i-7] + s1) >>> 0;
+      }
+      let a=h0,b=h1,c=h2,d=h3,e=h4,f=h5,g=h6,h=h7;
+      for (let i = 0; i < 64; i++) {
+        const sum1 = rotr(e,6) ^ rotr(e,11) ^ rotr(e,25);
+        const choose = (e & f) ^ (~e & g);
+        const t1 = (h + sum1 + choose + SHA256_K[i] + w[i]) >>> 0;
+        const sum0 = rotr(a,2) ^ rotr(a,13) ^ rotr(a,22);
+        const majority = (a & b) ^ (a & c) ^ (b & c);
+        const t2 = (sum0 + majority) >>> 0;
+        h=g; g=f; f=e; e=(d+t1)>>>0; d=c; c=b; b=a; a=(t1+t2)>>>0;
+      }
+      h0=(h0+a)>>>0; h1=(h1+b)>>>0; h2=(h2+c)>>>0; h3=(h3+d)>>>0;
+      h4=(h4+e)>>>0; h5=(h5+f)>>>0; h6=(h6+g)>>>0; h7=(h7+h)>>>0;
+    }
+
+    const output = new Uint8Array(32);
+    const outputView = new DataView(output.buffer);
+    [h0,h1,h2,h3,h4,h5,h6,h7].forEach((value, index) => outputView.setUint32(index * 4, value, false));
+    return output;
+  }
+
+  async function sha256WebCrypto(bytes) {
+    if (!globalThis.crypto || !crypto.subtle) throw new Error("Web Crypto SHA-256 is unavailable in this browser.");
+    return new Uint8Array(await crypto.subtle.digest("SHA-256", bytes));
+  }
+
+  function hex(bytes) { return Array.from(bytes, (value) => value.toString(16).padStart(2, "0")).join(""); }
+  function equalBytes(a, b) { return a.length === b.length && a.every((value, index) => value === b[index]); }
+  function byteBits(byte) { return byte.toString(2).padStart(8, "0"); }
+
+  function entropyToBytes(bits) {
+    const bytes = new Uint8Array(32);
+    for (let i = 0; i < 32; i++) bytes[i] = Number.parseInt(bits.slice(i * 8, i * 8 + 8), 2);
+    return bytes;
+  }
+
+  function buildGroups(entropyBits, hashBytes) {
+    const checksum = byteBits(hashBytes[0]);
+    const combined = entropyBits + checksum;
+    const groups = [];
+    for (let i = 0; i < 24; i++) {
+      const binary = combined.slice(i * 11, i * 11 + 11);
+      const index = Number.parseInt(binary, 2);
+      groups.push({ number: i + 1, binary, index, line: index + 1, word: WORDLIST[index] });
+    }
+    return { checksum, groups, phrase: groups.map((group) => group.word).join(" ") };
+  }
+
+  function setTest(id, passed, message) {
+    const node = $(id);
+    node.dataset.state = passed ? "pass" : "fail";
+    node.querySelector("strong").textContent = (passed ? "✓ " : "✕ ") + message;
+  }
+
+  async function runSelfTests() {
+    try {
+      const emptyExpected = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
+      const abcExpected = "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad";
+      const jsKnown = hex(sha256JavaScript(encoder.encode(""))) === emptyExpected && hex(sha256JavaScript(encoder.encode("abc"))) === abcExpected;
+      const webKnown = hex(await sha256WebCrypto(encoder.encode("abc"))) === abcExpected;
+      setTest("shaTest", jsKnown && webKnown, jsKnown && webKnown ? "Both implementations passed" : "Known-answer failure");
+
+      const listHash = hex(sha256JavaScript(encoder.encode(WORDLIST.join("\n"))));
+      const listValid = WORDLIST.length === 2048 && new Set(WORDLIST).size === 2048 && listHash === WORDLIST_SHA256;
+      setTest("wordlistTest", listValid, listValid ? "2,048 words + hash passed" : "Snapshot validation failed");
+
+      const zeroBits = "0".repeat(256);
+      const zeroHash = sha256JavaScript(entropyToBytes(zeroBits));
+      const zeroPhrase = buildGroups(zeroBits, zeroHash).phrase;
+      const vectorValid = zeroPhrase === ZERO_VECTOR_PHRASE;
+      setTest("vectorTest", vectorValid, vectorValid ? "abandon × 23 + art" : "Vector mismatch");
+
+      const walletTests = WalletCrypto.runWalletSelfTests();
+      const walletValid = walletTests.passed && walletTests.checks.every((check) => check.passed);
+      setTest("walletTest", walletValid, walletValid ? `${walletTests.checks.length} vectors passed` : "Wallet vector failure");
+
+      testsPassed = jsKnown && webKnown && listValid && vectorValid && walletValid;
+      $("deriveButton").disabled = !testsPassed;
+      if (!testsPassed) $("inputError").textContent = "Self-tests failed. Derivation is disabled; do not use this file.";
+    } catch (error) {
+      setTest("shaTest", false, "Self-test error");
+      setTest("wordlistTest", false, "Not completed");
+      setTest("vectorTest", false, "Not completed");
+      setTest("walletTest", false, "Wallet derivation disabled");
+      testsPassed = false;
+      $("deriveButton").disabled = true;
+      $("deriveWalletButton").disabled = true;
+      $("inputError").textContent = error instanceof Error ? error.message : "Self-tests failed.";
+    }
+  }
+
+  function normalizedInput() { return $("entropy").value.replace(/\s/g, ""); }
+
+  function hidePhrase() {
+    if (revealTimeout) clearTimeout(revealTimeout);
+    if (countdownInterval) clearInterval(countdownInterval);
+    revealTimeout = null;
+    countdownInterval = null;
+    $("phraseOutput").textContent = "24-word phrase concealed";
+    $("phraseOutput").classList.add("concealed");
+    $("countdown").textContent = "Hidden";
+    $("revealButton").textContent = "Reveal for 30 seconds";
+  }
+
+  function revealPhrase() {
+    if (!currentPhrase) return;
+    hidePhrase();
+    $("phraseOutput").textContent = currentPhrase;
+    $("phraseOutput").classList.remove("concealed");
+    $("revealButton").textContent = "Hide now";
+    let remaining = 30;
+    $("countdown").textContent = remaining + "s visible";
+    countdownInterval = setInterval(() => {
+      remaining -= 1;
+      $("countdown").textContent = remaining + "s visible";
+    }, 1000);
+    revealTimeout = setTimeout(hidePhrase, 30000);
+  }
+
+  function clearWalletState(hideFlow = true) {
+    if (publicWallet?.accountPublic) publicWallet.accountPublic.wipePrivateData();
+    publicWallet = null;
+    addressCount = 0;
+    $("walletPassphrase").value = "";
+    $("walletPassphraseConfirm").value = "";
+    $("walletError").textContent = "";
+    $("walletExport").hidden = true;
+    $("addressSection").hidden = true;
+    $("verificationSection").hidden = true;
+    $("addressRows").replaceChildren();
+    ["walletMetadata", "masterFingerprint", "accountZpub", "accountXpubPackage", "receiveDescriptor", "changeDescriptor", "firstReceiveAddress", "watchOnlyJson", "firstChangeAddress", "firstChangePath"].forEach((id) => {
+      const node = $(id);
+      if (!node) return;
+      if (node.tagName === "TEXTAREA") node.value = "";
+      else node.textContent = "";
+    });
+    document.querySelectorAll(".qr-wrap").forEach((wrap) => { wrap.hidden = true; });
+    document.querySelectorAll("canvas").forEach((canvas) => WalletCrypto.clearQr(canvas));
+    document.querySelectorAll(".qr-toggle").forEach((button) => { button.textContent = button.id === "jsonQrButton" ? "Reveal QR if it fits" : "Reveal QR"; });
+    document.querySelectorAll("#verificationSection input[type=checkbox]").forEach((checkbox) => { checkbox.checked = false; });
+    $("deriveWalletButton").disabled = !testsPassed;
+    $("deriveWalletButton").firstElementChild.textContent = "Derive public wallet information";
+    $("moreAddressesButton").disabled = false;
+    $("moreAddressesButton").textContent = "Generate next 20";
+    if (hideFlow) $("walletFlow").hidden = true;
+  }
+
+  function resetResults() {
+    hidePhrase();
+    currentPhrase = "";
+    clearWalletState(true);
+    $("results").hidden = true;
+    $("wordRows").replaceChildren();
+    $("hashHex").textContent = "";
+    $("checksumBits").textContent = "";
+  }
+
+  async function derive() {
+    const bits = normalizedInput();
+    $("inputError").textContent = "";
+    if (!testsPassed) { $("inputError").textContent = "Self-tests have not passed."; return; }
+    if (!/^[01]{256}$/.test(bits)) {
+      $("inputError").textContent = /[^01]/.test(bits) ? "Only binary digits 0 and 1 plus whitespace are allowed." : "Enter exactly 256 binary bits.";
+      return;
+    }
+
+    try {
+      const bytes = entropyToBytes(bits);
+      const webHash = await sha256WebCrypto(bytes);
+      const jsHash = sha256JavaScript(bytes);
+      if (!equalBytes(webHash, jsHash)) throw new Error("SHA-256 cross-check failed. No phrase was produced.");
+
+      const detail = buildGroups(bits, webHash);
+      currentPhrase = detail.phrase;
+      $("hashHex").textContent = hex(webHash);
+      $("checksumBits").textContent = detail.checksum;
+      $("crossCheckStatus").textContent = "Web Crypto and JavaScript SHA-256 agree";
+      const fragment = document.createDocumentFragment();
+      detail.groups.forEach((group) => {
+        const row = document.createElement("tr");
+        // Keep the words out of this table so the final phrase remains
+        // concealed until the user explicitly reveals it in Step 03.
+        const values = [String(group.number).padStart(2,"0"), group.binary, String(group.line)];
+        values.forEach((value, index) => {
+          const cell = document.createElement("td");
+          if (index === 1) { const code = document.createElement("code"); code.textContent = value; cell.append(code); }
+          else cell.textContent = value;
+          row.append(cell);
+        });
+        fragment.append(row);
+      });
+      $("wordRows").replaceChildren(fragment);
+      hidePhrase();
+      $("results").hidden = false;
+      clearWalletState(false);
+      $("walletFlow").hidden = false;
+      $("results").scrollIntoView({ behavior: "smooth", block: "start" });
+    } catch (error) {
+      resetResults();
+      $("inputError").textContent = error instanceof Error ? error.message : "Derivation failed.";
+    }
+  }
+
+  function populatePublicWallet(wallet) {
+    const publicPackage = WalletCrypto.createWatchOnlyPackage(wallet);
+    $("walletMetadata").textContent = [
+      "Network: Bitcoin mainnet",
+      "Wallet: Native SegWit · single-signature",
+      "Script: P2WPKH (BIP84)",
+      "Account: 0",
+      "Path: m/84'/0'/0'",
+    ].join("\n");
+    $("masterFingerprint").textContent = wallet.masterFingerprint;
+    $("accountZpub").textContent = wallet.accountZpub;
+    $("accountXpubPackage").textContent = `fingerprint=${wallet.masterFingerprint}\npath=m/84'/0'/0'\nxpub=${wallet.accountXpub}`;
+    $("receiveDescriptor").textContent = wallet.receiveDescriptor;
+    $("changeDescriptor").textContent = wallet.changeDescriptor;
+    $("firstReceiveAddress").textContent = wallet.firstReceiveAddress;
+    $("watchOnlyJson").value = JSON.stringify(publicPackage, null, 2);
+    $("firstChangePath").textContent = "m/84'/0'/0'/1/0";
+    $("firstChangeAddress").textContent = WalletCrypto.deriveAddress(wallet.accountPublic, 1, 0);
+    $("walletExport").hidden = false;
+    $("addressSection").hidden = false;
+    $("verificationSection").hidden = false;
+  }
+
+  function makeCell(value, useCode = false) {
+    const cell = document.createElement("td");
+    if (useCode) {
+      const code = document.createElement("code");
+      code.textContent = value;
+      cell.append(code);
+    } else cell.textContent = value;
+    return cell;
+  }
+
+  function appendReceivingAddresses(count) {
+    if (!publicWallet?.accountPublic) return;
+    const end = Math.min(addressCount + count, 100);
+    const fragment = document.createDocumentFragment();
+    for (let index = addressCount; index < end; index += 1) {
+      const address = WalletCrypto.deriveAddress(publicWallet.accountPublic, 0, index);
+      const path = `m/84'/0'/0'/0/${index}`;
+      const row = document.createElement("tr");
+      row.append(makeCell(String(index)), makeCell(path, true), makeCell(address, true));
+      const actions = document.createElement("td");
+      const actionWrap = document.createElement("div");
+      actionWrap.className = "mini-actions";
+      const qrButton = document.createElement("button");
+      qrButton.className = "mini-button address-qr-toggle";
+      qrButton.type = "button";
+      qrButton.dataset.index = String(index);
+      qrButton.dataset.address = address;
+      qrButton.textContent = "Reveal QR";
+      const copyButton = document.createElement("button");
+      copyButton.className = "mini-button address-copy";
+      copyButton.type = "button";
+      copyButton.dataset.address = address;
+      copyButton.textContent = "Copy address";
+      actionWrap.append(qrButton, copyButton);
+      actions.append(actionWrap);
+      row.append(actions);
+
+      const qrRow = document.createElement("tr");
+      qrRow.className = "address-qr";
+      qrRow.hidden = true;
+      qrRow.dataset.index = String(index);
+      const qrCell = document.createElement("td");
+      qrCell.colSpan = 4;
+      const wrap = document.createElement("div");
+      wrap.className = "qr-wrap";
+      const canvas = document.createElement("canvas");
+      canvas.setAttribute("aria-label", `Receiving address ${index} QR code`);
+      const note = document.createElement("p");
+      note.className = "qr-note";
+      note.textContent = `${path} · public receiving address`;
+      wrap.append(canvas, note);
+      qrCell.append(wrap);
+      qrRow.append(qrCell);
+      fragment.append(row, qrRow);
+    }
+    $("addressRows").append(fragment);
+    addressCount = end;
+    if (addressCount >= 100) {
+      $("moreAddressesButton").disabled = true;
+      $("moreAddressesButton").textContent = "100-address safety cap reached";
+    } else {
+      $("moreAddressesButton").textContent = `Generate addresses ${addressCount}–${addressCount + 19}`;
+    }
+  }
+
+  async function derivePublicWallet() {
+    $("walletError").textContent = "";
+    if (!testsPassed) {
+      $("walletError").textContent = "Cryptographic self-tests did not pass. Wallet derivation is disabled.";
+      return;
+    }
+    if (!currentPhrase) {
+      $("walletError").textContent = "Derive the 24-word mnemonic first.";
+      return;
+    }
+    let passphrase = $("walletPassphrase").value;
+    let confirmation = $("walletPassphraseConfirm").value;
+    if ((passphrase !== "" || confirmation !== "") && passphrase !== confirmation) {
+      $("walletError").textContent = "Passphrase entries do not match.";
+      return;
+    }
+
+    $("deriveWalletButton").disabled = true;
+    $("deriveWalletButton").firstElementChild.textContent = "Deriving and discarding secret state…";
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+    try {
+      clearWalletState(false);
+      publicWallet = WalletCrypto.deriveWatchOnly(currentPhrase, passphrase);
+      populatePublicWallet(publicWallet);
+      appendReceivingAddresses(20);
+      $("walletPassphrase").value = "";
+      $("walletPassphraseConfirm").value = "";
+      passphrase = "";
+      confirmation = "";
+      $("walletExport").scrollIntoView({ behavior: "smooth", block: "start" });
+    } catch (error) {
+      clearWalletState(false);
+      $("walletError").textContent = error instanceof Error ? error.message : "Public wallet derivation failed.";
+    } finally {
+      $("deriveWalletButton").disabled = !testsPassed;
+      $("deriveWalletButton").firstElementChild.textContent = "Derive public wallet information";
+    }
+  }
+
+  async function copyPublicValue(button, value) {
+    if (!value) return;
+    const original = button.textContent;
+    try {
+      await navigator.clipboard.writeText(value);
+      button.textContent = "Copied public data";
+    } catch {
+      button.textContent = "Clipboard unavailable";
+    }
+    setTimeout(() => { button.textContent = original; }, 1600);
+  }
+
+  function toggleStaticQr(button) {
+    const canvas = $(button.dataset.qr);
+    const source = $(button.dataset.source);
+    const wrap = $(button.dataset.qr + "Wrap");
+    if (!canvas || !source || !wrap) return;
+    if (!wrap.hidden) {
+      WalletCrypto.clearQr(canvas);
+      wrap.hidden = true;
+      button.textContent = button.id === "jsonQrButton" ? "Reveal QR if it fits" : "Reveal QR";
+      return;
+    }
+    const value = source.tagName === "TEXTAREA" ? source.value : source.textContent;
+    try {
+      WalletCrypto.drawQr(canvas, value, { ecc: button.id === "jsonQrButton" ? "low" : "medium" });
+      wrap.hidden = false;
+      button.textContent = "Hide QR";
+      if (button.id === "jsonQrButton") $("jsonQrNote").textContent = "Complete public wallet package · verify scan contents before import";
+    } catch {
+      wrap.hidden = true;
+      button.disabled = true;
+      button.textContent = "Package too large for dependable QR";
+    }
+  }
+
+  $("entropy").addEventListener("input", () => {
+    const bits = normalizedInput();
+    $("bitCounter").textContent = bits.length + " / 256 bits";
+    $("inputError").textContent = /[^01]/.test(bits) ? "Only binary digits 0 and 1 plus whitespace are allowed." : "";
+    resetResults();
+  });
+  $("deriveButton").addEventListener("click", derive);
+  $("clearButton").addEventListener("click", () => {
+    $("entropy").value = "";
+    $("bitCounter").textContent = "0 / 256 bits";
+    $("inputError").textContent = "";
+    resetResults();
+    $("entropy").focus();
+  });
+  $("revealButton").addEventListener("click", () => {
+    if ($("phraseOutput").classList.contains("concealed")) revealPhrase(); else hidePhrase();
+  });
+  $("deriveWalletButton").addEventListener("click", derivePublicWallet);
+  $("moreAddressesButton").addEventListener("click", () => appendReceivingAddresses(20));
+  document.querySelectorAll(".copy-public").forEach((button) => {
+    button.addEventListener("click", () => {
+      const source = $(button.dataset.copy);
+      const value = source.tagName === "TEXTAREA" ? source.value : source.textContent;
+      copyPublicValue(button, value);
+    });
+  });
+  document.querySelectorAll(".qr-toggle").forEach((button) => {
+    button.addEventListener("click", () => toggleStaticQr(button));
+  });
+  $("addressRows").addEventListener("click", (event) => {
+    const copyButton = event.target.closest(".address-copy");
+    if (copyButton) {
+      copyPublicValue(copyButton, copyButton.dataset.address);
+      return;
+    }
+    const qrButton = event.target.closest(".address-qr-toggle");
+    if (!qrButton) return;
+    const qrRow = $("addressRows").querySelector(`.address-qr[data-index="${qrButton.dataset.index}"]`);
+    const canvas = qrRow.querySelector("canvas");
+    if (qrRow.hidden) {
+      WalletCrypto.drawQr(canvas, qrButton.dataset.address, { ecc: "medium" });
+      qrRow.hidden = false;
+      qrButton.textContent = "Hide QR";
+    } else {
+      WalletCrypto.clearQr(canvas);
+      qrRow.hidden = true;
+      qrButton.textContent = "Reveal QR";
+    }
+  });
+  document.addEventListener("visibilitychange", () => { if (document.hidden) hidePhrase(); });
+
+  runSelfTests();
+  </script>
+</body>
+</html>
