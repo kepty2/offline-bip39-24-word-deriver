@@ -1,10 +1,9 @@
-/** Cloudflare Worker entry point for the vinext-starter template. */
+/** Optional Cloudflare Worker entry point for the offline wallet project. */
 import { handleImageOptimization, DEFAULT_DEVICE_SIZES, DEFAULT_IMAGE_SIZES } from "vinext/server/image-optimization";
 import handler from "vinext/server/app-router-entry";
 
 interface Env {
   ASSETS?: Fetcher;
-  DB: D1Database;
   IMAGES: {
     input(stream: ReadableStream): {
       transform(options: Record<string, unknown>): {
@@ -36,8 +35,8 @@ const worker = {
         new URL("/offline-bip39-24-word-deriver.html", request.url),
         request,
       );
-      // Sites supplies ASSETS in production. The direct fetch fallback keeps
-      // the same public file reachable through the local vinext preview.
+      // A hosting platform may supply ASSETS in production. The direct fetch
+      // fallback keeps the same public file reachable in local previews.
       return env.ASSETS ? env.ASSETS.fetch(assetRequest) : fetch(assetRequest);
     }
 
